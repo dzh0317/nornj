@@ -1,5 +1,5 @@
 /*!
-* NornJ template engine v5.0.0-rc.3
+* NornJ template engine v5.0.0-rc.14
 * (c) 2016-2019 Joe_Sky
 * Released under the MIT License.
 */
@@ -20,6 +20,7 @@ nj.textTag = 'nj-text';
 nj.textMode = false;
 nj.noWsTag = 'nj-noWs';
 nj.noWsMode = false;
+nj.fixTagName = true;
 
 function _typeof(obj) {
   if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
@@ -137,21 +138,18 @@ function isArrayLike(obj) {
   return typeof length == 'number' && length >= 0;
 } //遍历数组或对象
 
-function each(obj, func, context, isArr) {
+function each(obj, func, isArr) {
   if (!obj) {
     return;
   }
 
   if (isArr == null) {
     isArr = isArrayLike(obj);
-  } //设置回调函数上下文
-
-
-  context = context ? context : obj;
+  }
 
   if (isArr) {
     for (var i = 0, l = obj.length; i < l; i++) {
-      var ret = func.call(context, obj[i], i, l);
+      var ret = func.call(obj, obj[i], i, l);
 
       if (ret === false) {
         break;
@@ -163,7 +161,7 @@ function each(obj, func, context, isArr) {
 
     for (var _i = 0; _i < _l; _i++) {
       var k = keys[_i],
-          _ret = func.call(context, obj[k], k, _i, _l);
+          _ret = func.call(obj, obj[k], k, _i, _l);
 
       if (_ret === false) {
         break;
@@ -240,7 +238,7 @@ function clearQuot(value, clearDouble) {
   return value;
 } //Transform to camel-case
 
-function toCamelCase(str) {
+function camelCase(str) {
   if (str.indexOf('-') > -1) {
     str = str.replace(/-\w/g, function (letter) {
       return letter.substr(1).toUpperCase();
@@ -266,6 +264,9 @@ var assign = Object.assign || function (target) {
 function capitalize(str) {
   return str[0].toUpperCase() + str.substr(1);
 }
+function lowerFirst(str) {
+  return str[0].toLowerCase() + str.substr(1);
+}
 assign(nj, {
   defineProp: defineProp,
   defineProps: defineProps,
@@ -281,9 +282,10 @@ assign(nj, {
   throwIf: throwIf,
   warn: warn,
   obj: obj,
-  toCamelCase: toCamelCase,
+  camelCase: camelCase,
   assign: assign,
-  capitalize: capitalize
+  capitalize: capitalize,
+  lowerFirst: lowerFirst
 });
 
 var tools = /*#__PURE__*/Object.freeze({
@@ -304,9 +306,10 @@ var tools = /*#__PURE__*/Object.freeze({
   error: error,
   obj: obj,
   clearQuot: clearQuot,
-  toCamelCase: toCamelCase,
+  camelCase: camelCase,
   assign: assign,
-  capitalize: capitalize
+  capitalize: capitalize,
+  lowerFirst: lowerFirst
 });
 
 var components = nj.components,
@@ -346,11 +349,11 @@ function registerComponent(name, component, options) {
 
       ret.push(comp);
     }
-  }, false, false);
+  }, false);
   return ret;
 }
 function getComponentConfig(name) {
-  return componentConfig.get(isString(name) ? components[name] : name);
+  return componentConfig.get(isString(name) ? components[name] || name : name);
 }
 function copyComponentConfig(component, from) {
   componentConfig.set(component, componentConfig.get(from));
@@ -396,17 +399,17 @@ function createTmplRule() {
       _nj$tmplRule$endRule = _nj$tmplRule.endRule,
       endRule = _nj$tmplRule$endRule === void 0 ? '}}' : _nj$tmplRule$endRule,
       _nj$tmplRule$extensio = _nj$tmplRule.extensionRule,
-      extensionRule = _nj$tmplRule$extensio === void 0 ? '#' : _nj$tmplRule$extensio,
+      extensionRule = _nj$tmplRule$extensio === void 0 ? 'n-' : _nj$tmplRule$extensio,
       _nj$tmplRule$propRule = _nj$tmplRule.propRule,
-      propRule = _nj$tmplRule$propRule === void 0 ? '@' : _nj$tmplRule$propRule,
+      propRule = _nj$tmplRule$propRule === void 0 ? 'p-' : _nj$tmplRule$propRule,
       _nj$tmplRule$strPropR = _nj$tmplRule.strPropRule,
-      strPropRule = _nj$tmplRule$strPropR === void 0 ? '@' : _nj$tmplRule$strPropR,
+      strPropRule = _nj$tmplRule$strPropR === void 0 ? 's' : _nj$tmplRule$strPropR,
       _nj$tmplRule$template = _nj$tmplRule.templateRule,
       templateRule = _nj$tmplRule$template === void 0 ? 'template' : _nj$tmplRule$template,
       _nj$tmplRule$tagSpRul = _nj$tmplRule.tagSpRule,
       tagSpRule = _nj$tmplRule$tagSpRul === void 0 ? '#$@' : _nj$tmplRule$tagSpRul,
       _nj$tmplRule$commentR = _nj$tmplRule.commentRule,
-      commentRule = _nj$tmplRule$commentR === void 0 ? '#' : _nj$tmplRule$commentR;
+      commentRule = _nj$tmplRule$commentR === void 0 ? '-' : _nj$tmplRule$commentR;
   var start = rules.start,
       end = rules.end,
       extension = rules.extension,
@@ -474,7 +477,7 @@ function createTmplRule() {
     braceParamStr: braceParamStr,
     xmlOpenTag: _createRegExp('^<([a-z' + firstChar + extensionRules + '][^\\s>]*)[^>]*>$', 'i'),
     openTagParams: _createRegExp('[\\s]+(((' + startRuleR + '(' + varContent + ')' + endRuleR + ')|(' + startRule + '(' + varContent + ')' + endRule + '))|[^\\s=>]+)(=((\'[^\']+\')|("[^"]+")|([^"\'\\s]+)))?', 'g'),
-    exAttrs: _createRegExp('[\\s]+(((' + startRuleR + '(' + varContent + ')' + endRuleR + ')|(' + startRule + '(' + varContent + ')' + endRule + '))|((:?)(' + escapeExtensionRule + ')?([^\\s=>]+)))(=((\'[^\']+\')|("[^"]+")|([^"\'\\s>]+)))?', 'g'),
+    directives: _createRegExp('[\\s]+(((' + startRuleR + '(' + varContent + ')' + endRuleR + ')|(' + startRule + '(' + varContent + ')' + endRule + '))|((:?)(' + escapeExtensionRule + ')?([^\\s=>]+)))(=((\'[^\']+\')|("[^"]+")|([^"\'\\s>]+)))?', 'g'),
     braceParam: _createRegExp(braceParamStr, 'i'),
     braceParamG: _createRegExp(braceParamStr, 'ig'),
     spreadProp: _createRegExp('[\\s]+(' + startRuleR + '[\\s]*(' + varContentS + ')' + endRuleR + ')|(' + startRule + '[\\s]*(' + varContentS + ')' + endRule + ')', 'g'),
@@ -506,7 +509,8 @@ function config (configs) {
       createElement = configs.createElement,
       outputH = configs.outputH,
       textMode = configs.textMode,
-      noWsMode = configs.noWsMode;
+      noWsMode = configs.noWsMode,
+      fixTagName = configs.fixTagName;
 
   if (delimiters) {
     createTmplRule(delimiters, true);
@@ -530,6 +534,10 @@ function config (configs) {
 
   if (noWsMode != null) {
     nj.noWsMode = noWsMode;
+  }
+
+  if (fixTagName != null) {
+    nj.fixTagName = fixTagName;
   }
 }
 
@@ -609,15 +617,15 @@ function styleProps(obj) {
     } //将连字符转为驼峰命名
 
 
-    key = toCamelCase(key);
+    key = camelCase(key);
     ret[key] = REGEX_NUM.test(value) ? Number(value) : value;
   }
 
   return ret;
 } //Get value from multiple datas
 
-function getData(prop, data, hasCtx) {
-  var ret, obj;
+function getData(prop, data, hasSource) {
+  var value, obj;
 
   if (!data) {
     data = this.data;
@@ -627,60 +635,46 @@ function getData(prop, data, hasCtx) {
     obj = data[i];
 
     if (obj) {
-      ret = obj[prop];
+      value = obj[prop];
 
-      if (ret !== undefined) {
-        if (hasCtx) {
+      if (value !== undefined) {
+        if (hasSource) {
           return {
-            _njCtx: obj,
-            val: ret,
-            prop: prop
+            source: obj,
+            value: value,
+            prop: prop,
+            _njSrc: true
           };
         }
 
-        return ret;
+        return value;
       }
     }
   }
 }
-
-function _getLevel(level, p2) {
-  if (level != null && p2.level != null) {
-    level += p2.level;
-  }
-
-  return level;
-}
-
-function getComputedData(fn, p2, level) {
+function getAccessorData(fn, context) {
   if (fn == null) {
     return fn;
   }
 
-  if (fn.val._njTmpl) {
+  if (fn._njTmpl) {
     //模板函数
-    return fn.val.call({
-      _njData: p2.data,
-      _njParent: p2.parent,
-      _njIndex: p2.index,
-      _njLevel: _getLevel(level, p2),
-      _njIcp: p2.icp
-    });
+    return fn.call(context);
   } else {
     //普通函数
-    return fn.val.call(p2.data[p2.data.length - 1], p2);
+    return fn.call(context.$this, context);
   }
 }
-function getElement(name, p1, nameO, p2, subName) {
+function getElement(name, global, nameO, context, subName) {
   var element;
 
-  if (!p2.icp) {
-    element = p1.cp[name];
+  if (!context.icp) {
+    element = global.cp[name];
   } else {
-    element = getData(nameO, p2.icp);
+    element = getData(nameO, context.icp);
 
     if (!element) {
-      element = p1.cp[name];
+      element = global.cp[name];
     }
   }
 
@@ -690,8 +684,8 @@ function getElement(name, p1, nameO, p2, subName) {
 
   return element ? element : nameO;
 }
-function getElementRefer(refer, name, p1, nameO, p2) {
-  return refer != null ? isString(refer) ? getElement(refer.toLowerCase(), p1, refer, p2) : refer : getElement(name, p1, nameO, p2);
+function getElementRefer(refer, name, global, nameO, context) {
+  return refer != null ? isString(refer) ? getElement(refer.toLowerCase(), global, refer, context) : refer : getElement(name, global, nameO, context);
 }
 function getElementName(refer, name) {
   return refer != null && refer !== '' ? refer : name;
@@ -706,27 +700,17 @@ function addArgs(props, dataRefer) {
   }
 } //Rebuild local variables in the new context
 
-function newContext(p2, p3) {
-  if (!p3) {
-    return p2;
+function newContext(context, params) {
+  if (!params) {
+    return context;
   }
 
-  return {
-    data: p3.data ? arrayPush(p3.data, p2.data) : p2.data,
-    parent: p3.fallback ? p2 : p2.parent,
-    root: p2.root || p2,
-    index: 'index' in p3 ? p3.index : p2.index,
-    item: 'item' in p3 ? p3.item : p2.item,
-    level: p2.level,
-    getData: getData,
-
-    get ctxInstance() {
-      return this.data[this.data.length - 1];
-    },
-
-    d: getData,
-    icp: p2.icp
-  };
+  return assign({}, context, {
+    data: params.data ? arrayPush(params.data, context.data) : context.data,
+    parent: params.newParent ? context : context.parent,
+    index: params.index != null ? params.index : context.index,
+    item: params.item != null ? params.item : context.item
+  });
 } //修正属性名
 
 function fixPropName(name) {
@@ -755,13 +739,13 @@ function assignStrProps() {
   return ret;
 } //创建扩展标签子节点函数
 
-function exRet(p1, p2, fn, p4, p5) {
+function exRet(global, context, fn) {
   return function (param) {
-    return fn(p1, p2, param, p4, p5);
+    return fn(global, context, param);
   };
 }
 
-function _getLocalComponents(localConfigs, initCtx) {
+function _getLocalComponents(localConfigs) {
   var icp;
 
   if (localConfigs && localConfigs.components) {
@@ -772,47 +756,47 @@ function _getLocalComponents(localConfigs, initCtx) {
     }
   }
 
-  if (initCtx && initCtx._njIcp) {
-    icp = icp ? arrayPush(icp, initCtx._njIcp) : initCtx._njIcp;
-  }
-
   return icp;
 } //构建可运行的模板函数
 
 
 function tmplWrap(configs, main) {
-  return function (lc, lc2) {
-    var initCtx = this,
+  return function (param1, param2) {
+    var ctx = this,
         data = arraySlice(arguments);
-    return main(configs, {
-      data: initCtx && initCtx._njData ? arrayPush(data, initCtx._njData) : data,
-      parent: initCtx ? initCtx._njParent : null,
-      index: initCtx ? initCtx._njIndex : null,
-      item: initCtx ? initCtx._njItem : null,
-      level: initCtx ? initCtx._njLevel : null,
+    return main(configs, ctx && ctx._njCtx ? assign({}, ctx, {
+      data: arrayPush(data, ctx.data)
+    }) : {
+      data: data,
       getData: getData,
+
+      get $this() {
+        return this.data[this.data.length - 1];
+      },
+
       d: getData,
-      icp: _getLocalComponents(lc && lc._njParam ? lc2 : lc, initCtx)
+      icp: _getLocalComponents(param1 && param1._njParam ? param2 : param1),
+      _njCtx: true
     });
   };
 }
 
-function levelSpace(p2) {
-  if (p2.level == null) {
+function levelSpace(context) {
+  if (context.level == null) {
     return '';
   }
 
   var ret = '';
 
-  for (var i = 0; i < p2.level; i++) {
+  for (var i = 0; i < context.level; i++) {
     ret += '  ';
   }
 
   return ret;
 }
 
-function firstNewline(p2) {
-  return p2.index == null ? '' : p2.index == 0 ? '' : '\n';
+function firstNewline(context) {
+  return context.index == null ? '' : context.index == 0 ? '' : '\n';
 }
 
 function createElementApply(p) {
@@ -820,7 +804,7 @@ function createElementApply(p) {
 }
 
 function callFilter(filter) {
-  return filter._njCtx ? filter.val.bind(filter._njCtx) : filter;
+  return filter.source ? filter.value.bind(filter.source) : filter;
 } //创建模板函数
 
 
@@ -834,7 +818,7 @@ function template(fns, tmplKey) {
     tf: throwIf,
     wn: warn,
     n: newContext,
-    c: getComputedData,
+    c: getAccessorData,
     sp: styleProps,
     r: exRet,
     e: getElement,
@@ -843,7 +827,6 @@ function template(fns, tmplKey) {
     aa: addArgs,
     an: assign,
     g: nj.global,
-    l: _getLevel,
     cf: callFilter
   };
 
@@ -859,16 +842,12 @@ function template(fns, tmplKey) {
   }
 
   each(fns, function (v, k) {
-    if (k.indexOf('main') === 0) {
+    if (k === 'main') {
       //将每个主函数构建为可运行的模板函数
       configs[k] = tmplWrap(configs, v);
       defineProps(configs[k], {
         _njTmpl: {
           value: true
-        },
-        tmplName: {
-          //设置函数名
-          value: v._njName
         }
       });
       configs['_' + k] = v;
@@ -876,9 +855,16 @@ function template(fns, tmplKey) {
       //扩展标签函数
       configs[k] = v;
     }
-  }, false, false);
+  }, false);
   return configs;
 }
+
+var SwitchPrefixConfig;
+
+(function (SwitchPrefixConfig) {
+  SwitchPrefixConfig["OnlyLowerCase"] = "onlyLowerCase";
+  SwitchPrefixConfig["OnlyUpperCase"] = "onlyUpperCase";
+})(SwitchPrefixConfig || (SwitchPrefixConfig = {}));
 
 var extensions = {
   'if': function _if(value, options) {
@@ -912,7 +898,7 @@ var extensions = {
                 ret = elseFn();
               }
             }
-          }, false, true);
+          }, true);
         } else {
           if (elseFn) {
             ret = elseFn();
@@ -928,7 +914,7 @@ var extensions = {
     return ret;
   },
   'else': function _else(options) {
-    return options.subExProps['else'] = options.children;
+    return options.tagProps['else'] = options.children;
   },
   'elseif': function elseif(value, options) {
     if (value && value._njOpts) {
@@ -936,13 +922,14 @@ var extensions = {
       value = options.props.condition || options.props.value;
     }
 
-    var exProps = options.subExProps;
+    var _options = options,
+        tagProps = _options.tagProps;
 
-    if (!exProps.elseifs) {
-      exProps.elseifs = [];
+    if (!tagProps.elseifs) {
+      tagProps.elseifs = [];
     }
 
-    exProps.elseifs.push({
+    tagProps.elseifs.push({
       value: value,
       fn: options.children
     });
@@ -965,7 +952,7 @@ var extensions = {
           ret = props['else']();
         }
       }
-    }, false, true);
+    }, true);
     return ret;
   },
   each: function each$1(list, options) {
@@ -991,29 +978,21 @@ var extensions = {
           data: [item],
           index: isArrayLike$1 ? index : len,
           item: item,
-          fallback: true
+          newParent: true
         };
-        var extra;
 
         var _len = isArrayLike$1 ? len : lenObj;
 
-        extra = {
+        var extra = {
           '@first': param.index === 0,
           '@last': param.index === _len - 1
         };
 
         if (!isArrayLike$1) {
-          if (!extra) {
-            extra = {};
-          }
-
           extra['@key'] = index;
         }
 
-        if (extra) {
-          param.data.push(extra);
-        }
-
+        param.data.push(extra);
         var retI = options.children(param);
 
         if (useString) {
@@ -1021,7 +1000,7 @@ var extensions = {
         } else {
           ret.push(retI);
         }
-      }, false, isArrayLike$1); //Return null when not use string and result is empty.
+      }, isArrayLike$1); //Return null when not use string and result is empty.
 
       if (!useString && !ret.length) {
         ret = null;
@@ -1044,7 +1023,7 @@ var extensions = {
   },
   //Parameter
   prop: function prop(name, options) {
-    var ret = options.children(),
+    var ret = options.value(),
         //Get parameter value
     value;
 
@@ -1055,121 +1034,37 @@ var extensions = {
       value = !options.useString ? true : name;
     }
 
-    options.exProps[options.outputH ? fixPropName(name) : name] = value;
+    options.tagProps[options.outputH ? fixPropName(name) : name] = value;
   },
   //Spread parameters
   spread: function spread(props, options) {
+    var tagProps = options.tagProps;
     each(props, function (v, k) {
-      options.exProps[k] = v;
-    }, false, false);
+      tagProps[k] === undefined && (options.tagProps[k] = v);
+    }, false);
   },
   show: function show(options) {
     if (!options.value()) {
-      var attrs = options.attrs,
+      var tagProps = options.tagProps,
           useString = options.useString;
 
-      if (!attrs.style) {
-        attrs.style = useString ? '' : {};
+      if (!tagProps.style) {
+        tagProps.style = useString ? '' : {};
       }
 
       if (useString) {
-        attrs.style += (attrs.style ? ';' : '') + 'display:none';
-      } else if (isArray(attrs.style)) {
-        attrs.style.push({
+        tagProps.style += (tagProps.style ? ';' : '') + 'display:none';
+      } else if (isArray(tagProps.style)) {
+        tagProps.style.push({
           display: 'none'
         });
       } else {
-        attrs.style.display = 'none';
+        tagProps.style.display = 'none';
       }
     }
-  },
-  'for': function _for(i, to, options) {
-    var step = 1;
-    var indexKey;
-
-    if (i && i._njOpts) {
-      options = i;
-      var _options = options,
-          props = _options.props;
-      Object.keys(props).forEach(function (prop) {
-        var value = props[prop];
-
-        if (prop === 'to') {
-          to = value;
-        } else if (prop === 'step') {
-          step = value;
-        } else {
-          i = value;
-          indexKey = prop;
-        }
-      });
-    } else if (options.props) {
-      step = options.props.step || 1;
-    }
-
-    var ret,
-        useString = options.useString;
-
-    if (useString) {
-      ret = '';
-    } else {
-      ret = [];
-    }
-
-    for (; i <= to; i += step) {
-      var retI = options.children({
-        data: indexKey ? [_defineProperty({}, indexKey, i)] : null,
-        index: i,
-        fallback: true
-      });
-
-      if (useString) {
-        ret += retI;
-      } else {
-        ret.push(retI);
-      }
-    }
-
-    return ret;
   },
   obj: function obj(options) {
     return options.props;
-  },
-  list: function list() {
-    var args = arguments,
-        last = args.length - 1,
-        options = args[last];
-
-    if (last > 0) {
-      var ret = arraySlice(args, 0, last);
-
-      if (options.useString) {
-        ret = ret.join('');
-      }
-
-      return ret;
-    } else {
-      return [options.children()];
-    }
-  },
-  fn: function fn(options) {
-    var props = options.props;
-    return function () {
-      var _arguments = arguments;
-      var params;
-
-      if (props) {
-        params = {};
-        var paramNames = Object.keys(props);
-        paramNames.forEach(function (v, i) {
-          return params[paramNames[i]] = _arguments[i];
-        });
-      }
-
-      return options.children({
-        data: [params]
-      });
-    };
   },
   block: function block(options) {
     return options.children();
@@ -1189,13 +1084,13 @@ var extensions = {
     }
   },
   arg: function arg(options) {
-    var exProps = options.exProps;
+    var tagProps = options.tagProps;
 
-    if (!exProps.args) {
-      exProps.args = [];
+    if (!tagProps.args) {
+      tagProps.args = [];
     }
 
-    exProps.args.push(options.children());
+    tagProps.args.push(options.value());
   },
   css: function css(options) {
     return options.props.style;
@@ -1207,15 +1102,13 @@ function _config(params, extra) {
     onlyGlobal: false,
     useString: false,
     newContext: true,
-    exProps: false,
-    isProp: false,
-    subExProps: false,
-    isSub: false,
-    addSet: false,
-    useExpressionInJsx: 'onlyTemplateLiteral',
+    isSubTag: false,
+    isDirective: false,
+    isBindable: false,
+    useExpressionInProps: true,
     hasName: true,
     noTagName: false,
-    hasAttrs: true,
+    hasTagProps: true,
     hasTmplCtx: true,
     hasOutputH: false
   };
@@ -1235,74 +1128,60 @@ var _defaultCfg = {
   onlyGlobal: true,
   newContext: false,
   hasName: false,
-  hasAttrs: false,
+  hasTagProps: false,
   hasTmplCtx: false
 }; //Extension default config
 
 var extensionConfig = {
   'if': _config(_defaultCfg),
   'else': _config(_defaultCfg, {
-    subExProps: true,
-    isSub: true
+    isSubTag: true,
+    hasTagProps: true
   }),
   'switch': _config(_defaultCfg, {
-    needPrefix: 'onlyUpperCase'
+    needPrefix: SwitchPrefixConfig.OnlyLowerCase
   }),
   each: _config(_defaultCfg, {
     newContext: {
       item: 'item',
       index: 'index',
-      datas: {
+      data: {
         first: ['@first', 'first'],
-        last: ['@last', 'last']
-      }
-    }
-  }),
-  'for': _config(_defaultCfg, {
-    newContext: {
-      index: 'index',
-      getDatasFromProp: {
-        except: ['to', 'step', 'index']
+        last: ['@last', 'last'],
+        key: ['@key', 'key']
       }
     }
   }),
   prop: _config(_defaultCfg, {
-    exProps: true,
-    subExProps: true,
-    isProp: true,
-    onlyTemplate: true
+    isDirective: true,
+    needPrefix: true,
+    hasTagProps: true
   }),
   obj: _config(_defaultCfg, {
-    onlyTemplate: true
-  }),
-  fn: _config(_defaultCfg, {
-    newContext: true,
-    onlyTemplate: true
+    needPrefix: true
   }),
   'with': _config(_defaultCfg, {
     newContext: {
-      getDatasFromProp: true
+      getDataFromProps: true
     }
   }),
   style: {
-    useExpressionInJsx: false,
+    useExpressionInProps: false,
     needPrefix: true
   }
 };
 extensionConfig.elseif = _config(extensionConfig['else']);
 extensionConfig.spread = _config(extensionConfig.prop);
-extensionConfig.list = _config(extensionConfig.obj);
 extensionConfig.block = _config(extensionConfig.obj);
-extensionConfig.pre = _config(extensionConfig.obj);
 extensionConfig.arg = _config(extensionConfig.prop);
 extensionConfig.show = _config(extensionConfig.prop, {
-  isDirective: true,
   noTagName: true,
-  hasAttrs: true,
   hasOutputH: true
 });
 extensionConfig.css = _config(extensionConfig.obj); //Extension alias
 
+extensions['for'] = extensions.each;
+extensionConfig['for'] = _config(extensionConfig.each);
 extensions['case'] = extensions.elseif;
 extensionConfig['case'] = extensionConfig.elseif;
 extensions['empty'] = extensions['default'] = extensions['else'];
@@ -1343,12 +1222,16 @@ function registerExtension(name, extension, options, mergeConfig) {
           extensionConfig[name] = _config();
         }
 
-        assign(extensionConfig[name], _options3);
+        if (isObject(_options3)) {
+          assign(extensionConfig[name], _options3);
+        } else {
+          extensionConfig[name] = _config();
+        }
       } else {
         extensionConfig[name] = _config(_options3);
       }
     }
-  }, false, false);
+  }, false);
 }
 assign(nj, {
   extensions: extensions,
@@ -1356,7 +1239,7 @@ assign(nj, {
   registerExtension: registerExtension
 });
 
-var digitsRE = /(\d{3})(?=\d)/g; //Global filter list
+var REGEX_DIGITS_RE = /(\d{3})(?=\d)/g; //Global filter list
 
 var filters = {
   //Get properties
@@ -1365,16 +1248,20 @@ var filters = {
       return obj;
     }
 
-    if (obj._njCtx) {
+    if (obj._njSrc) {
       return {
-        _njCtx: obj.val,
-        val: obj.val[prop],
-        prop: prop
+        source: obj.value,
+        value: obj.value[prop],
+        prop: prop,
+        parent: obj,
+        _njSrc: true
       };
     } else if (callFn) {
       return {
-        obj: obj,
-        prop: prop
+        source: obj,
+        value: obj[prop],
+        prop: prop,
+        _njSrc: true
       };
     }
 
@@ -1382,24 +1269,32 @@ var filters = {
   },
   //Call function
   _: function _(fn, args) {
-    return fn && fn.obj[fn.prop] != null ? fn.obj[fn.prop].apply(fn.obj, args) : null;
+    if (fn == null) {
+      return fn;
+    }
+
+    if (fn._njSrc) {
+      var _fn = fn.source[fn.prop];
+      return _fn != null ? _fn.apply(fn.source, args) : _fn;
+    }
+
+    return fn.apply(null, args);
   },
-  //Get computed properties
+  //Get accessor properties
   '#': function _(obj, prop, options) {
     if (obj == null) {
       return obj;
     }
 
-    return getComputedData({
-      val: obj[prop],
-      _njCtx: obj
-    }, options.context, options.level);
+    return getAccessorData(obj[prop], options.context);
   },
   '**': function _(val1, val2) {
-    return Math.pow(val1, val2);
+    var ret = Math.pow(val1, val2);
+    return isNaN(ret) ? 0 : ret;
   },
   '%%': function _(val1, val2) {
-    return Math.floor(val1 / val2);
+    var ret = Math.floor(val1 / val2);
+    return isNaN(ret) ? 0 : ret;
   },
   //Ternary operator
   '?:': function _(val, val1, val2) {
@@ -1411,11 +1306,13 @@ var filters = {
   //Convert to int 
   int: function int(val) {
     var radix = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 10;
-    return parseInt(val, radix);
+    var ret = parseInt(val, radix);
+    return isNaN(ret) ? 0 : ret;
   },
   //Convert to float 
-  float: function float(val) {
-    return parseFloat(val);
+  float: function float(val, bit) {
+    var ret = parseFloat(val);
+    return isNaN(ret) ? 0 : bit != null ? ret.toFixed(bit) : ret;
   },
   //Convert to boolean 
   bool: function bool(val) {
@@ -1449,8 +1346,26 @@ var filters = {
   capitalize: function capitalize$1(str) {
     return capitalize(str);
   },
+  lowerFirst: function lowerFirst$1(str) {
+    return lowerFirst(str);
+  },
+  camelCase: function camelCase$1(str) {
+    return camelCase(str);
+  },
+  isObject: function isObject$1(val) {
+    return isObject(val);
+  },
+  isNumber: function isNumber$1(val) {
+    return isNumber(val);
+  },
+  isString: function isString$1(val) {
+    return isString(val);
+  },
+  isArrayLike: function isArrayLike$1(val) {
+    return isArrayLike(val);
+  },
   currency: function currency(value, decimals, _currency) {
-    if (!(value - parseFloat(value) >= 0)) return '';
+    if (!(value - parseFloat(value) >= 0)) return filterConfig.currency.placeholder;
     value = parseFloat(value);
     _currency = decimals != null && typeof decimals == 'string' ? decimals : _currency;
     _currency = _currency != null && typeof _currency == 'string' ? _currency : filterConfig.currency.symbol;
@@ -1465,7 +1380,7 @@ var filters = {
     var _float = decimals ? stringified.slice(-1 - decimals) : '';
 
     var sign = value < 0 ? '-' : '';
-    return sign + _currency + head + _int.slice(i).replace(digitsRE, '$1,') + _float;
+    return sign + _currency + head + _int.slice(i).replace(REGEX_DIGITS_RE, '$1,') + _float;
   }
 };
 
@@ -1483,8 +1398,10 @@ function _config$1(params, extra) {
   var ret = {
     onlyGlobal: false,
     hasOptions: false,
+    isOperator: false,
     hasLevel: false,
-    hasTmplCtx: true
+    hasTmplCtx: true,
+    alias: null
   };
 
   if (params) {
@@ -1526,22 +1443,17 @@ var filterConfig = {
   rLt: _config$1(_defaultCfg$1),
   '<=>': _config$1(_defaultCfg$1),
   capitalize: _config$1(_defaultCfg$1),
+  lowerFirst: _config$1(_defaultCfg$1),
+  camelCase: _config$1(_defaultCfg$1),
+  isObject: _config$1(_defaultCfg$1),
+  isNumber: _config$1(_defaultCfg$1),
+  isString: _config$1(_defaultCfg$1),
+  isArrayLike: _config$1(_defaultCfg$1),
   currency: _config$1(_defaultCfg$1, {
-    symbol: '$'
+    symbol: '$',
+    placeholder: ''
   })
-};
-var operators = ['+=', '+', '-[0-9]', '-', '**', '*', '%%', '%', '===', '!==', '==', '!=', '<=>', '<=', '>=', '=', '..<', '<', '>', '&&', '||', '?:', '?', ':', '../', '..', '/'];
-var REGEX_OPERATORS_ESCAPE = /\*|\||\/|\.|\?|\+/g;
-
-function _createRegexOperators() {
-  return new RegExp(operators.map(function (o) {
-    return o.replace(REGEX_OPERATORS_ESCAPE, function (match) {
-      return '\\' + match;
-    });
-  }).join('|'), 'g');
-}
-
-nj.REGEX_OPERATORS = _createRegexOperators(); //Register filter and also can batch add
+}; //Register filter and also can batch add
 
 function registerFilter(name, filter, options, mergeConfig) {
   var params = name;
@@ -1559,6 +1471,27 @@ function registerFilter(name, filter, options, mergeConfig) {
       var _filter = v.filter,
           _options = v.options;
 
+      if (_options) {
+        if (_options.isOperator) {
+          var createRegexOperators = nj.createRegexOperators;
+
+          if (createRegexOperators) {
+            createRegexOperators(name);
+          }
+        }
+
+        var alias = _options.alias;
+
+        if (alias) {
+          var createFilterAlias = nj.createFilterAlias;
+
+          if (createFilterAlias) {
+            createFilterAlias(name, alias);
+            name = alias;
+          }
+        }
+      }
+
       if (_filter) {
         filters[name] = _filter;
       } else if (!mergeConfig) {
@@ -1570,12 +1503,16 @@ function registerFilter(name, filter, options, mergeConfig) {
           filterConfig[name] = _config$1();
         }
 
-        assign(filterConfig[name], _options);
+        if (isObject(_options)) {
+          assign(filterConfig[name], _options);
+        } else {
+          filterConfig[name] = _config$1();
+        }
       } else {
         filterConfig[name] = _config$1(_options);
       }
     }
-  }, false, false);
+  }, false);
 }
 assign(nj, {
   filters: filters,
@@ -1628,16 +1565,16 @@ function _compiledProp(prop, innerBrackets, innerQuotes, source) {
           var params = [];
           each(innerBrackets[paramsF].split(','), function (p) {
             if (p !== '') {
-              params[params.length] = _compiledProp(p.trim(), innerBrackets, innerQuotes, source);
+              params[params.length] = _compiledProp(p.trim(), innerBrackets, innerQuotes);
             }
-          }, false, true);
+          }, true);
           filterObj.params = params;
         }
 
         filterObj.name = filterName;
         filters.push(filterObj);
       }
-    }, false, true);
+    }, true);
     ret.filters = filters;
   } //替换字符串值
 
@@ -1656,8 +1593,8 @@ function _compiledProp(prop, innerBrackets, innerQuotes, source) {
 
   if (prop !== '') {
     var matchProp = REGEX_JS_PROP.exec(prop);
-    var hasComputed = matchProp[6] === '#';
-    ret.name = hasComputed ? matchProp[7] : matchProp[0]; // if (matchProp[0] !== prop) {
+    var hasAccessor = matchProp[6] === '#';
+    ret.name = hasAccessor ? matchProp[7] : matchProp[0]; // if (matchProp[0] !== prop) {
     //   tools.error(_syntaxError(SPACE_ERROR, _replaceStr(propO, innerQuotes), source));
     // }
 
@@ -1666,8 +1603,8 @@ function _compiledProp(prop, innerBrackets, innerQuotes, source) {
       ret.isBasicType = true;
     }
 
-    if (hasComputed) {
-      ret.isComputed = true;
+    if (hasAccessor) {
+      ret.isAccessor = true;
     }
 
     ret.name = ret.name.replace(REGEX_REPLACE_SET, function () {
@@ -1693,11 +1630,26 @@ var LT_GT_LOOKUP = {
   '_njGt_': '>'
 };
 var REGEX_QUOTE = /"[^"]*"|'[^']*'/g;
+var REGEX_OPERATORS_ESCAPE = /\*|\||\/|\.|\?|\+/g;
 var SP_FILTER_LOOKUP = {
   '||': 'or',
   '..<': 'rLt'
 };
-var REGEX_SP_FILTER = /[\s]+((\|\||\.\.<)[\s]*)/g;
+var REGEX_SP_FILTER;
+
+function createFilterAlias(name, alias) {
+  if (name && alias) {
+    SP_FILTER_LOOKUP[name] = alias;
+  }
+
+  REGEX_SP_FILTER = new RegExp('[\\s]+((' + Object.keys(SP_FILTER_LOOKUP).map(function (o) {
+    return o.replace(REGEX_OPERATORS_ESCAPE, function (match) {
+      return '\\' + match;
+    });
+  }).join('|') + ')[\\s]*)', 'g');
+}
+
+createFilterAlias();
 var FN_FILTER_LOOKUP = {
   ')': ')_(',
   ']': ']_('
@@ -1719,6 +1671,28 @@ var REGEX_BRACKET_FILTER = /^[\s]*([(]+)|([(,])[\s]*([(]+)/g;
 var NOT_OPERATORS = ['../'];
 var REGEX_NEGATIVE = /-[0-9]/;
 var BEGIN_CHARS = ['', '(', '[', ','];
+var OPERATORS = ['+=', '+', '-[0-9]', '-', '**', '*', '%%', '%', '===', '!==', '==', '!=', '<=>', '<=', '>=', '=', '..<', '<', '>', '&&', '||', '?:', '?', ':', '../', '..', '/'];
+var REGEX_OPERATORS;
+
+function createRegexOperators(operator) {
+  if (operator) {
+    var insertIndex = 0;
+    OPERATORS.forEach(function (o, i) {
+      if (o.indexOf(operator) >= 0) {
+        insertIndex = i + 1;
+      }
+    });
+    OPERATORS.splice(insertIndex, 0, operator);
+  }
+
+  REGEX_OPERATORS = new RegExp(OPERATORS.map(function (o) {
+    return o.replace(REGEX_OPERATORS_ESCAPE, function (match) {
+      return '\\' + match;
+    });
+  }).join('|'), 'g');
+}
+
+createRegexOperators();
 
 function _getProp(matchArr, innerQuotes, i, addSet) {
   var prop = matchArr[2].trim(),
@@ -1738,8 +1712,7 @@ function _getProp(matchArr, innerQuotes, i, addSet) {
   }).replace(REGEX_QUOTE, function (match) {
     innerQuotes.push(match);
     return '_njQs' + (innerQuotes.length - 1) + '_';
-  });
-  prop = prop.replace(nj.REGEX_OPERATORS, function (match, index) {
+  }).replace(REGEX_OPERATORS, function (match, index) {
     if (REGEX_NEGATIVE.test(match)) {
       if (index > 0 && BEGIN_CHARS.indexOf(prop[index - 1].trim()) < 0) {
         //Example: 123-456
@@ -1751,6 +1724,8 @@ function _getProp(matchArr, innerQuotes, i, addSet) {
     } else {
       return NOT_OPERATORS.indexOf(match) < 0 ? " ".concat(match, " ") : match;
     }
+  }).replace(REGEX_SP_FILTER, function (all, g1, match) {
+    return ' ' + SP_FILTER_LOOKUP[match] + ' ';
   }).replace(REGEX_PROP_FILTER, function (all, g1) {
     var startWithHash = g1[0] === '#';
 
@@ -1770,9 +1745,7 @@ function _getProp(matchArr, innerQuotes, i, addSet) {
   }).replace(REGEX_BRACKET_FILTER, function (all, g1, g2, g3) {
     return (g2 ? g2 : '') + (g2 ? g3 : g1).replace(/[(]/g, 'bracket(');
   }) //.replace(REGEX_OBJKEY_FILTER, (all, g1, g2) => g1 + ' \'' + g2 + '\' : ')
-  .replace(REGEX_SP_FILTER, function (all, g1, match) {
-    return ' ' + SP_FILTER_LOOKUP[match] + ' ';
-  }).replace(REGEX_SPACE_S_FILTER, function (all, match) {
+  .replace(REGEX_SPACE_S_FILTER, function (all, match) {
     return match;
   }).replace(REGEX_FN_FILTER, function (all, match, g1) {
     return !g1 ? FN_FILTER_LOOKUP[match] : '.(\'' + g1 + '\')_(';
@@ -1874,11 +1847,11 @@ function compiledParam(value, tmplRule, hasColon, onlyKey, addSet) {
 
       var prop = _replaceInnerBrackets(param[2], innerBrackets);
 
-      retP.prop = _compiledProp(prop, innerBrackets, innerQuotes, value); //To determine whether it is necessary to escape
+      retP.prop = _compiledProp(prop, innerBrackets, innerQuotes); //To determine whether it is necessary to escape
 
       retP.escape = param[1] !== tmplRule.firstChar + tmplRule.startRule;
       props.push(retP);
-    }, false, true);
+    }, true);
   }
 
   ret.props = props;
@@ -1887,6 +1860,10 @@ function compiledParam(value, tmplRule, hasColon, onlyKey, addSet) {
   ret.onlyKey = onlyKey;
   return ret;
 }
+assign(nj, {
+  createFilterAlias: createFilterAlias,
+  createRegexOperators: createRegexOperators
+});
 
 function getXmlOpenTag(obj, tmplRule) {
   return tmplRule.xmlOpenTag.exec(obj);
@@ -2006,52 +1983,37 @@ function isEx(obj, tmplRule, noParams) {
 }
 function isExAll(obj, tmplRule) {
   return obj.match(tmplRule.exAll);
-} //判断是否模板元素
+}
+var REGEX_LOWER_CASE = /^[a-z]/;
+var REGEX_UPPER_CASE = /^[A-Z]/;
+function fixExTagName(tagName, tmplRule) {
+  var ret;
 
-function isTmpl(obj) {
-  return obj === 'tmpl';
-} //加入到模板集合中
-
-function addTmpl(node, parent, name) {
-  var paramsP = parent.params;
-
-  if (!paramsP) {
-    paramsP = parent.params = obj();
+  if (!nj.fixTagName) {
+    return ret;
   }
 
-  var tmpls = paramsP.tmpls;
+  var _tagName = lowerFirst(tagName),
+      config = extensionConfig[_tagName];
 
-  if (!tmpls) {
-    var _objT;
-
-    var objT = (_objT = {}, _defineProperty(_objT, name != null ? name : '_njT0', {
-      node: node,
-      no: 0
-    }), _defineProperty(_objT, "_njLen", 1), _objT);
-    paramsP.tmpls = compiledParam(objT);
-  } else {
-    //Insert the compiled template to the parameter name for "tmpls"'s "strs" array.
-    var _objT2 = tmpls.strs[0],
-        len = _objT2._njLen;
-    _objT2[name != null ? name : '_njT' + len] = {
-      node: node,
-      no: len
-    };
-    _objT2._njLen = ++len;
+  if (config && (!config.needPrefix || config.needPrefix == 'onlyUpperCase' && REGEX_LOWER_CASE.test(tagName) || config.needPrefix == 'onlyLowerCase' && REGEX_UPPER_CASE.test(tagName))) {
+    ret = tmplRule.extensionRule + _tagName;
   }
+
+  return ret;
 } //Test whether as parameters extension
 
 function isParamsEx(name) {
   return name === 'params' || name === 'props';
 } //Add to the "paramsEx" property of the parent node
 
-function addParamsEx(node, parent, isProp, isSub) {
-  var exPropsName = isSub ? 'propsExS' : 'paramsEx';
+function addParamsEx(node, parent, isDirective, isSubTag) {
+  var exPropsName = 'paramsEx';
 
   if (!parent[exPropsName]) {
     var exPropsNode;
 
-    if (isProp || isSub) {
+    if (isDirective || isSubTag) {
       exPropsNode = {
         type: 'nj_ex',
         ex: 'props',
@@ -2064,17 +2026,11 @@ function addParamsEx(node, parent, isProp, isSub) {
     exPropsNode.parentType = parent.type;
     parent[exPropsName] = exPropsNode;
   } else {
-    arrayPush(parent[exPropsName].content, isProp || isSub ? [node] : node.content);
+    arrayPush(parent[exPropsName].content, isDirective || isSubTag ? [node] : node.content);
   }
 }
 function exCompileConfig(name) {
-  var config = extensionConfig[name];
-  return {
-    isSub: config ? config.isSub : false,
-    isProp: config ? config.isProp : false,
-    useString: config ? config.useString : false,
-    addSet: config ? config.addSet : false
-  };
+  return extensionConfig[name] || {};
 }
 function isPropS(elemName, tmplRule) {
   return elemName.indexOf(tmplRule.propRule) === 0;
@@ -2088,7 +2044,7 @@ var NO_SPLIT_NEWLINE = ['style', 'script', 'textarea', 'pre', 'xmp', 'template',
 function _plainTextNode(obj, parent, parentContent, noSplitNewline, tmplRule) {
   var node = {};
   node.type = 'nj_plaintext';
-  node.content = [compiledParam(obj, tmplRule, null, null, parent.ex != null ? exCompileConfig(parent.ex).addSet : null)];
+  node.content = [compiledParam(obj, tmplRule, null, null, parent.ex != null ? exCompileConfig(parent.ex).isBindable : null)];
   node.allowNewline = noSplitNewline;
   parent[parentContent].push(node);
 }
@@ -2136,10 +2092,9 @@ function checkElem(obj$1, parent, tmplRule, hasExProps, noSplitNewline, isLast) 
 
     var openTagName,
         hasCloseTag = false,
-        isTmpl$1,
         isParamsEx$1,
-        isProp,
-        isSub,
+        isDirective,
+        isSubTag,
         needAddToProps;
     ex = isEx(first, tmplRule);
 
@@ -2168,14 +2123,13 @@ function checkElem(obj$1, parent, tmplRule, hasExProps, noSplitNewline, isLast) 
       //为扩展标签,也可视为一个元素节点
       var exName = ex[0];
       exParams = ex[1];
-      isTmpl$1 = isTmpl(exName);
       isParamsEx$1 = isParamsEx(exName);
 
       if (!isParamsEx$1) {
         var exConfig = exCompileConfig(exName);
-        isProp = exConfig.isProp;
-        isSub = exConfig.isSub;
-        needAddToProps = isProp ? !hasExProps : isSub;
+        isDirective = exConfig.isDirective;
+        isSubTag = exConfig.isSubTag;
+        needAddToProps = isDirective ? !hasExProps : isSubTag;
 
         if (exConfig.useString) {
           node.useString = exConfig.useString;
@@ -2185,7 +2139,7 @@ function checkElem(obj$1, parent, tmplRule, hasExProps, noSplitNewline, isLast) 
       node.type = 'nj_ex';
       node.ex = exName;
 
-      if (exParams != null && !isTmpl$1 && !isParamsEx$1) {
+      if (exParams != null && !isParamsEx$1) {
         if (!node.args) {
           node.args = [];
         }
@@ -2197,8 +2151,8 @@ function checkElem(obj$1, parent, tmplRule, hasExProps, noSplitNewline, isLast) 
           if (key === 'useString') {
             node.useString = !(value === 'false');
             return;
-          } else if (key === '_njIsProp') {
-            node.isDirective = node.isProp = isProp = true;
+          } else if (key === '_njIsDirective') {
+            node.isDirective = isDirective = true;
             needAddToProps = !hasExProps;
             return;
           }
@@ -2215,7 +2169,7 @@ function checkElem(obj$1, parent, tmplRule, hasExProps, noSplitNewline, isLast) 
 
             node.params[key] = paramV;
           }
-        }, false, true);
+        }, true);
       }
 
       isElemNode = true;
@@ -2249,7 +2203,7 @@ function checkElem(obj$1, parent, tmplRule, hasExProps, noSplitNewline, isLast) 
           each(tagParams, function (param) {
             //The parameter like "{prop}" needs to be replaced.
             node.params[param.onlyBrace ? param.onlyBrace.replace(/\.\.\//g, '') : param.key] = compiledParam(param.value, tmplRule, param.hasColon, param.onlyKey);
-          }, false, true);
+          }, true);
         } //Verify if self closing tag again, because the tag may be similar to "<br></br>".
 
 
@@ -2262,12 +2216,7 @@ function checkElem(obj$1, parent, tmplRule, hasExProps, noSplitNewline, isLast) 
           node.allowNewline = 'nlElem';
         }
       } else {
-        if (isTmpl$1) {
-          //模板元素
-          pushContent = false; //将模板添加到父节点的params中
-
-          addTmpl(node, parent, exParams ? exParams[0].value : null);
-        } else if (isParamsEx$1 || needAddToProps) {
+        if (isParamsEx$1 || needAddToProps) {
           pushContent = false;
         }
 
@@ -2287,12 +2236,12 @@ function checkElem(obj$1, parent, tmplRule, hasExProps, noSplitNewline, isLast) 
           content = obj$1.slice(1, end);
 
       if (content && content.length) {
-        _checkContentElem(content, node, tmplRule, isParamsEx$1 || hasExProps && !isProp, noSplitNewline, tmplRule);
+        _checkContentElem(content, node, tmplRule, isParamsEx$1 || hasExProps && !isDirective, noSplitNewline);
       } //If this is params block, set on the "paramsEx" property of the parent node.
 
 
       if (isParamsEx$1 || needAddToProps) {
-        addParamsEx(node, parent, isProp, isSub);
+        addParamsEx(node, parent, isDirective, isSubTag);
       }
     } else {
       //如果不是元素节点,则为节点集合
@@ -2311,30 +2260,27 @@ function _checkContentElem(obj, parent, tmplRule, hasExProps, noSplitNewline) {
 
   each(obj, function (item, i, l) {
     checkElem(item, parent, tmplRule, hasExProps, noSplitNewline, i == l - 1);
-  }, false, true);
+  }, true);
 }
 
-//   //'?': '?:',
-//   '//': '%%'
-// };
+var GLOBAL = 'g';
+var CONTEXT = 'c';
+var PARAMS = 'p';
 
-function _buildFn(content, node, fns, no, newContext, level, useStringLocal, name) {
+function _buildFn(content, node, fns, no, newContext, level, useStringLocal) {
   var fnStr = '',
       useString = useStringLocal != null ? useStringLocal : fns.useString,
-      isTmplEx = isString(no),
-      //如果no为字符串, 则本次将构建tmpl块模板函数
-  main = isTmplEx || no === 0,
+      main = no === 0,
 
   /* retType
-   1: 只有单个子节点
-   2: 有多个子节点
-   object: 非构建函数时
+   1: single child node
+   2: multiple child nodes
+   object: not build function
   */
   retType = content.length === 1 ? '1' : '2',
       counter = {
     _type: 0,
     _params: 0,
-    _paramsE: 0,
     _compParam: 0,
     _dataRefer: 0,
     _ex: 0,
@@ -2352,7 +2298,7 @@ function _buildFn(content, node, fns, no, newContext, level, useStringLocal, nam
   }
 
   if (!main && newContext) {
-    fnStr += 'p2 = p1.n(p2, p3);\n';
+    fnStr += "".concat(CONTEXT, " = ").concat(GLOBAL, ".n(").concat(CONTEXT, ", ").concat(PARAMS, ");\n");
   }
 
   if (retType === '2') {
@@ -2370,19 +2316,12 @@ function _buildFn(content, node, fns, no, newContext, level, useStringLocal, nam
   }
 
   try {
-    /* 构建扩展标签函数
-     p1: 模板全局数据
-     p2: 节点上下文数据
-     p3: 扩展标签内调用result方法传递的参数
-     p4: #props变量
-     p5：子扩展标签#props变量
+    /* build template functions
+     g: global configs
+     c: context
+     p: parameters
     */
-    var fn = fns[main ? 'main' + (isTmplEx ? no : '') : 'fn' + no] = new Function('p1', 'p2', 'p3', 'p4', 'p5', fnStr);
-
-    if (isTmplEx && name != null) {
-      //设置函数名
-      fn._njName = name;
-    }
+    fns[main ? 'main' : 'fn' + no] = new Function(GLOBAL, CONTEXT, PARAMS, fnStr);
   } catch (err) {
     error('Failed to generate template function:\n\n' + err.toString() + ' in\n\n' + fnStr + '\n');
   }
@@ -2390,8 +2329,8 @@ function _buildFn(content, node, fns, no, newContext, level, useStringLocal, nam
   return no;
 }
 
-function _buildOptions(config, useStringLocal, node, fns, exPropsStr, subExPropsStr, level, hashProps, tagName, attrs) {
-  var hashStr = ', useString: ' + (useStringLocal == null ? 'p1.us' : useStringLocal ? 'true' : 'false'),
+function _buildOptions(config, useStringLocal, node, fns, level, hashProps, tagName, tagProps) {
+  var hashStr = ', useString: ' + (useStringLocal == null ? "".concat(GLOBAL, ".us") : useStringLocal ? 'true' : 'false'),
       noConfig = !config,
       no = fns._no;
 
@@ -2399,14 +2338,6 @@ function _buildOptions(config, useStringLocal, node, fns, exPropsStr, subExProps
     //tags
     var newContext = config ? config.newContext : true;
     var isDirective = node.isDirective || config && config.isDirective;
-
-    if (noConfig || config.exProps || node.isProp) {
-      hashStr += ', exProps: ' + exPropsStr;
-    }
-
-    if (noConfig || config.subExProps || node.isProp) {
-      hashStr += ', subExProps: ' + subExPropsStr;
-    }
 
     if (noConfig || config.hasName) {
       hashStr += ', name: \'' + node.ex + '\'';
@@ -2417,22 +2348,22 @@ function _buildOptions(config, useStringLocal, node, fns, exPropsStr, subExProps
       hashStr += ', setTagName: function(c) { ' + tagName + ' = c }';
     }
 
-    if (attrs && (noConfig || config.hasAttrs)) {
-      hashStr += ', attrs: ' + attrs;
+    if (tagProps && (noConfig || config.hasTagProps)) {
+      hashStr += ', tagProps: ' + tagProps;
     }
 
     if (hashProps != null) {
       hashStr += ', props: ' + hashProps;
     }
 
-    hashStr += ', ' + (isDirective ? 'value' : 'children') + ': ' + (node.content ? 'p1.r(p1, p2, p1.fn' + _buildFn(node.content, node, fns, ++fns._no, newContext, level, useStringLocal) + ', ' + exPropsStr + ', ' + subExPropsStr + ')' : 'p1.np');
+    hashStr += ', ' + (isDirective ? 'value' : 'children') + ': ' + (node.content ? "".concat(GLOBAL, ".r(").concat(GLOBAL, ", ").concat(CONTEXT, ", ").concat(GLOBAL, ".fn") + _buildFn(node.content, node, fns, ++fns._no, newContext, level, useStringLocal) + ')' : "".concat(GLOBAL, ".np"));
   }
 
-  return '{ _njOpts: ' + (no == 0 ? '\'main\'' : no) + (noConfig || config.hasTmplCtx ? ', global: p1, context: p2' : '') + (noConfig || config.hasOutputH ? ', outputH: ' + !fns.useString : '') + hashStr + (level != null && (noConfig || config.hasLevel) ? ', level: ' + level : '') + ' }';
+  return '{ _njOpts: ' + (no + 1) + (noConfig || config.hasTmplCtx ? ", global: ".concat(GLOBAL, ", context: ").concat(CONTEXT) : '') + (noConfig || config.hasOutputH ? ', outputH: ' + !fns.useString : '') + hashStr + (level != null && (noConfig || config.hasLevel) ? ', level: ' + level : '') + ' }';
 }
 
 var CUSTOM_VAR = 'nj_custom';
-var OPERATORS = ['+', '-', '*', '/', '%', '===', '!==', '==', '!=', '<=', '>=', '=', '+=', '<', '>', '&&', '||', '?', ':'];
+var OPERATORS$1 = ['+', '-', '*', '/', '%', '===', '!==', '==', '!=', '<=', '>=', '=', '+=', '<', '>', '&&', '||', '?', ':'];
 var ASSIGN_OPERATORS = ['=', '+='];
 var SP_FILTER_REPLACE = {
   'or': '||'
@@ -2442,7 +2373,7 @@ function _buildDataValue(ast, escape, fns, level) {
   var dataValueStr,
       special = false;
   var isBasicType = ast.isBasicType,
-      isComputed = ast.isComputed,
+      isAccessor = ast.isAccessor,
       hasSet = ast.hasSet;
 
   if (isBasicType) {
@@ -2479,17 +2410,12 @@ function _buildDataValue(ast, escape, fns, level) {
         break;
 
       case '@g':
-        data = 'p1.g';
-        special = CUSTOM_VAR;
-        break;
-
-      case '@root':
-        data = '(p2.root || p2)';
+        data = "".concat(GLOBAL, ".g");
         special = CUSTOM_VAR;
         break;
 
       case '@context':
-        data = 'p2';
+        data = CONTEXT;
         special = CUSTOM_VAR;
         break;
 
@@ -2529,7 +2455,7 @@ function _buildDataValue(ast, escape, fns, level) {
         data = 'data';
       }
 
-      var isCtx = data == 'p2';
+      var isCtx = data == CONTEXT;
 
       for (var i = 0; i < parentNum; i++) {
         data = !isCtx ? 'parent.' + data : data + '.parent';
@@ -2541,15 +2467,15 @@ function _buildDataValue(ast, escape, fns, level) {
     }
 
     if (!special && !specialP) {
-      dataValueStr = (isComputed ? 'p1.c(' : '') + 'p2.d(\'' + name + '\'' + (isComputed || hasSet ? ', 0, true' : '') + ')' + (isComputed ? ', p2, ' + level + ')' : '');
+      dataValueStr = (isAccessor ? "".concat(GLOBAL, ".c(") : '') + "".concat(CONTEXT, ".d('") + name + '\'' + (hasSet ? ', 0, true' : '') + ')' + (isAccessor ? ", ".concat(CONTEXT) + ')' : '');
     } else {
-      var dataStr = special === CUSTOM_VAR ? data : 'p2.' + data;
+      var dataStr = special === CUSTOM_VAR ? data : "".concat(CONTEXT, ".") + data;
 
       if (isObject(special)) {
         dataStr = special(dataStr);
       }
 
-      dataValueStr = special ? dataStr : (isComputed ? 'p1.c(' : '') + 'p2.d(\'' + name + '\', ' + dataStr + (isComputed || hasSet ? ', true' : '') + ')' + (isComputed ? ', p2, ' + level + ')' : '');
+      dataValueStr = special ? dataStr : (isAccessor ? "".concat(GLOBAL, ".c(") : '') + "".concat(CONTEXT, ".d('") + name + '\', ' + dataStr + (hasSet ? ', true' : '') + ')' + (isAccessor ? ", ".concat(CONTEXT) + ')' : '');
     }
   }
 
@@ -2557,7 +2483,7 @@ function _buildDataValue(ast, escape, fns, level) {
     dataValueStr = _replaceBackslash(dataValueStr);
   }
 
-  return _buildEscape(dataValueStr, fns, isBasicType || isComputed ? false : escape, special);
+  return _buildEscape(dataValueStr, fns, isBasicType || isAccessor ? false : escape, special);
 }
 
 function replaceFilterName(name) {
@@ -2566,32 +2492,32 @@ function replaceFilterName(name) {
 }
 
 function buildExpression(ast, inObj, escape, fns, useStringLocal, level) {
-  var codeStr = ast.filters && OPERATORS.indexOf(replaceFilterName(ast.filters[0].name)) < 0 ? '' : !inObj ? _buildDataValue(ast, escape, fns, level) : ast.name;
+  var codeStr = ast.filters && OPERATORS$1.indexOf(replaceFilterName(ast.filters[0].name)) < 0 ? '' : !inObj ? _buildDataValue(ast, escape, fns) : ast.name;
   var lastCodeStr = '';
   ast.filters && ast.filters.forEach(function (filter, i) {
-    var hasFilterNext = ast.filters[i + 1] && OPERATORS.indexOf(replaceFilterName(ast.filters[i + 1].name)) < 0;
+    var hasFilterNext = ast.filters[i + 1] && OPERATORS$1.indexOf(replaceFilterName(ast.filters[i + 1].name)) < 0;
     var filterName = replaceFilterName(filter.name);
 
-    if (OPERATORS.indexOf(filterName) >= 0) {
+    if (OPERATORS$1.indexOf(filterName) >= 0) {
       //Native operator
       if (ASSIGN_OPERATORS.indexOf(filterName) >= 0) {
-        codeStr += "._njCtx.".concat(i == 0 ? ast.name : clearQuot(ast.filters[i - 1].params[0].name), " ").concat(filterName, " ");
+        codeStr += ".source.".concat(i == 0 ? ast.name : clearQuot(ast.filters[i - 1].params[0].name), " ").concat(filterName, " ");
       } else {
         codeStr += " ".concat(filterName, " ");
       }
 
-      if (!ast.filters[i + 1] || OPERATORS.indexOf(replaceFilterName(ast.filters[i + 1].name)) >= 0) {
+      if (!ast.filters[i + 1] || OPERATORS$1.indexOf(replaceFilterName(ast.filters[i + 1].name)) >= 0) {
         if (filter.params[0].filters) {
           codeStr += '(';
           codeStr += buildExpression(filter.params[0], null, escape, fns, useStringLocal, level);
           codeStr += ')';
         } else {
-          codeStr += _buildDataValue(filter.params[0], escape, fns, level);
+          codeStr += _buildDataValue(filter.params[0], escape, fns);
         }
       }
     } else if (filterName === '_') {
       //Call function
-      var _codeStr = "p1.f['".concat(filterName, "'](").concat(lastCodeStr);
+      var _codeStr = "".concat(GLOBAL, ".f['").concat(filterName, "'](").concat(lastCodeStr);
 
       if (filter.params.length) {
         _codeStr += ', [';
@@ -2632,15 +2558,15 @@ function buildExpression(ast, inObj, escape, fns, useStringLocal, level) {
         if (filterName == 'require') {
           startStr = 'require';
         } else {
-          var filterStr = "p1.f['".concat(filterName, "']"),
-              warnStr = "p1.wn('".concat(filterName, "', 'f')"),
+          var filterStr = "".concat(GLOBAL, ".f['").concat(filterName, "']"),
+              warnStr = "".concat(GLOBAL, ".wn('").concat(filterName, "', 'f')"),
               isDev = process.env.NODE_ENV !== 'production';
           configF = filterConfig[filterName];
 
           if (configF && configF.onlyGlobal) {
             startStr = isDev ? "(".concat(filterStr, " || ").concat(warnStr, ")") : filterStr;
           } else {
-            startStr = "p1.cf(p2.d('".concat(filterName, "', 0, true) || ").concat(filterStr).concat(isDev ? " || ".concat(warnStr) : '', ")");
+            startStr = "".concat(GLOBAL, ".cf(").concat(CONTEXT, ".d('").concat(filterName, "', 0, true) || ").concat(filterStr).concat(isDev ? " || ".concat(warnStr) : '', ")");
           }
         }
 
@@ -2662,14 +2588,14 @@ function buildExpression(ast, inObj, escape, fns, useStringLocal, level) {
       } else {
         //Operator
         if (i == 0) {
-          _codeStr2 += _buildDataValue(ast, escape, fns, level);
+          _codeStr2 += _buildDataValue(ast, escape, fns);
         } else if (lastCodeStr !== '') {
           _codeStr2 += lastCodeStr;
         } else {
           if (ast.filters[i - 1].params[0].filters) {
             _codeStr2 += buildExpression(ast.filters[i - 1].params[0], null, escape, fns, useStringLocal, level);
           } else {
-            _codeStr2 += _buildDataValue(ast.filters[i - 1].params[0], escape, fns, level);
+            _codeStr2 += _buildDataValue(ast.filters[i - 1].params[0], escape, fns);
           }
         }
 
@@ -2679,7 +2605,7 @@ function buildExpression(ast, inObj, escape, fns, useStringLocal, level) {
           if (param.filters) {
             _codeStr2 += buildExpression(param, null, escape, fns, useStringLocal, level);
           } else {
-            _codeStr2 += _buildDataValue(param, escape, fns, level);
+            _codeStr2 += _buildDataValue(param, escape, fns);
           }
         });
         var nextFilter = ast.filters[i + 1];
@@ -2690,7 +2616,7 @@ function buildExpression(ast, inObj, escape, fns, useStringLocal, level) {
 
 
         if (configF && configF.hasOptions) {
-          _codeStr2 += ", ".concat(_buildOptions(configF, useStringLocal, null, fns, null, null, level));
+          _codeStr2 += ", ".concat(_buildOptions(configF, useStringLocal, null, fns, level));
         }
       }
 
@@ -2710,7 +2636,7 @@ function buildExpression(ast, inObj, escape, fns, useStringLocal, level) {
 function _buildEscape(valueStr, fns, escape, special) {
   if (fns.useString) {
     if (escape && special !== CUSTOM_VAR) {
-      return 'p1.es(' + valueStr + ')';
+      return "".concat(GLOBAL, ".es(") + valueStr + ')';
     } else {
       return valueStr;
     }
@@ -2755,75 +2681,27 @@ function _buildProps(obj, fns, useStringLocal, level) {
       if (obj.isAll) {
         return false;
       }
-    }, false, true);
-  } else if (isObject(str0) && str0._njLen != null) {
-    //tmpl标签
-    valueStr += '{\n';
-    each(str0, function (v, k, i, l) {
-      if (k !== '_njLen') {
-        var hasName = k.indexOf('_njT') !== 0,
-            fnStr = 'p1.main' + _buildFn(v.node.content, v.node, fns, 'T' + ++fns._noT, null, null, null, hasName ? k : null);
-
-        valueStr += '  "' + v.no + '": ' + fnStr;
-
-        if (hasName) {
-          valueStr += ',\n  "' + k + '": ' + fnStr;
-        }
-      } else {
-        valueStr += '  length: ' + v;
-      }
-
-      valueStr += ',\n';
-
-      if (i === l - 1) {
-        //传递上下文参数
-        valueStr += '  _njData: p2.data,\n  \
-                       _njParent: p2.parent,\n  \
-                       _njIndex: p2.index,\n  \
-                       _njItem: p2.item,\n  \
-                       _njLevel: p1.l(' + level + ', p2),\n  \
-                       _njIcp: p2.icp\n';
-      }
-    }, false, false);
-    valueStr += '}';
+    }, true);
   }
 
   return valueStr;
 }
 
-function _buildPropsEx(isSub, paramsEC, propsEx, fns, counter, useString, exPropsStr, subExPropsStr, tagName, attrs) {
-  var paramsStr = 'var _paramsE' + paramsEC + ' = {};\n';
-  var ret = {};
-
-  if (isSub) {
-    ret._paramsE = exPropsStr;
-    ret._paramsSE = '_paramsE' + paramsEC;
-  } else {
-    ret._paramsE = '_paramsE' + paramsEC;
-    ret._paramsSE = subExPropsStr;
-  } //props标签的子节点
-
-
-  paramsStr += _buildContent(propsEx.content, propsEx, fns, counter, ret, null, useString, tagName, attrs);
-  return paramsStr;
-}
-
-function _buildParams(node, fns, counter, useString, level, exPropsStr, subExPropsStr, tagName) {
+function _buildParams(node, fns, counter, useString, level, tagName) {
   //节点参数
   var params = node.params,
-      paramsEx = node.paramsEx,
-      propsExS = node.propsExS;
+      paramsEx = node.paramsEx;
   var useStringF = fns.useString,
-      hasPropsEx = paramsEx || propsExS;
+      hasPropsEx = paramsEx;
 
   var paramsStr = '',
       _paramsC,
-      _attrs;
+      _tagProps;
 
   if (params || hasPropsEx) {
     _paramsC = counter._params++;
-    _attrs = '_params' + _paramsC;
-    paramsStr = 'var ' + _attrs + ' = ';
+    _tagProps = '_params' + _paramsC;
+    paramsStr = 'var ' + _tagProps + ' = ';
 
     if (params) {
       var paramKeys = Object.keys(params),
@@ -2834,7 +2712,7 @@ function _buildParams(node, fns, counter, useString, level, exPropsStr, subExPro
 
         if (!useStringF && k === 'style') {
           //将style字符串转换为对象
-          valueStr = 'p1.sp(' + valueStr + ')';
+          valueStr = "".concat(GLOBAL, ".sp(") + valueStr + ')';
         }
 
         var key = _replaceStrs(k),
@@ -2845,47 +2723,33 @@ function _buildParams(node, fns, counter, useString, level, exPropsStr, subExPro
         }
 
         paramsStr += '  \'' + key + '\': ' + (!onlyKey ? valueStr : !useString ? 'true' : '\'' + key + '\'') + (i < len - 1 ? ',\n' : '');
-      }, false, false);
+      }, false);
       paramsStr += '\n};\n';
     }
 
     if (hasPropsEx) {
-      var bothPropsEx = paramsEx && propsExS,
-          _paramsEC,
-          _paramsSEC;
-
       if (!params) {
         paramsStr += '{};\n';
       }
 
       if (paramsEx) {
-        _paramsEC = counter._paramsE++;
-        paramsStr += _buildPropsEx(false, _paramsEC, paramsEx, fns, counter, useString, exPropsStr, subExPropsStr, tagName, _attrs);
+        paramsStr += _buildContent(paramsEx.content, paramsEx, fns, counter, {
+          _paramsE: true
+        }, null, useString, tagName, _tagProps);
       }
 
-      if (propsExS) {
-        _paramsSEC = counter._paramsE++;
-        paramsStr += _buildPropsEx(true, _paramsSEC, propsExS, fns, counter, useString, exPropsStr, subExPropsStr, tagName, _attrs);
-      }
-
-      if (!useString) {
-        if (bothPropsEx) {
-          paramsStr += '\n' + _attrs + ' = p1.an({}, _paramsE' + _paramsEC + ', _paramsE' + _paramsSEC + ', ' + _attrs + ');\n';
-        } else {
-          paramsStr += '\n' + _attrs + ' = p1.an({}, _paramsE' + (_paramsEC != null ? _paramsEC : _paramsSEC) + ', ' + _attrs + ');\n';
-        }
-      } else {
-        paramsStr += '\n' + _attrs + ' = p1.ans({}, _paramsE' + _paramsEC + ', ' + _attrs + ');\n';
+      if (useString) {
+        paramsStr += '\n' + _tagProps + " = ".concat(GLOBAL, ".ans(") + _tagProps + ');\n';
       }
     } else if (useString) {
-      paramsStr += '\n' + _attrs + ' = p1.ans({}, ' + _attrs + ');\n';
+      paramsStr += '\n' + _tagProps + " = ".concat(GLOBAL, ".ans({}, ") + _tagProps + ');\n';
     }
   }
 
   return [paramsStr, _paramsC];
 }
 
-function _buildNode(node, parent, fns, counter, retType, level, useStringLocal, isFirst, tagName, attrs) {
+function _buildNode(node, parent, fns, counter, retType, level, useStringLocal, isFirst, tagName, tagProps) {
   var fnStr = '',
       useStringF = fns.useString;
 
@@ -2914,19 +2778,19 @@ function _buildNode(node, parent, fns, counter, retType, level, useStringLocal, 
         dataReferStr = '',
         configE = extensionConfig[node.ex],
         exVarStr = '_ex' + _exC,
-        globalExStr = 'p1.x[\'' + node.ex + '\']',
+        globalExStr = "".concat(GLOBAL, ".x['") + node.ex + '\']',
         fnHVarStr;
 
     if (configE && configE.onlyGlobal) {
       //只能从全局获取
       fnStr += '\nvar ' + exVarStr + ' = ' + globalExStr + ';\n';
     } else {
-      //优先从p2.data中获取
+      //优先从context.data中获取
       fnHVarStr = '_fnH' + counter._fnH++;
       fnStr += '\nvar ' + exVarStr + ';\n';
-      fnStr += 'var ' + fnHVarStr + ' = p2.d(\'' + node.ex + '\', 0, true);\n';
+      fnStr += 'var ' + fnHVarStr + " = ".concat(CONTEXT, ".d('") + node.ex + '\', 0, true);\n';
       fnStr += 'if (' + fnHVarStr + ') {\n';
-      fnStr += '  ' + exVarStr + ' = ' + fnHVarStr + '.val;\n';
+      fnStr += '  ' + exVarStr + ' = ' + fnHVarStr + '.value;\n';
       fnStr += '} else {\n';
       fnStr += '  ' + exVarStr + ' = ' + globalExStr + ';\n';
       fnStr += '}\n';
@@ -2940,43 +2804,26 @@ function _buildNode(node, parent, fns, counter, retType, level, useStringLocal, 
         var valueStr = _buildProps(arg, fns, useStringLocal, level);
 
         dataReferStr += '  ' + valueStr + ',';
-      }, false, true);
-    } //props块
-
-
-    var exPropsStr = 'p4',
-        subExPropsStr = 'p5';
-
-    if (retType) {
-      var _paramsE = retType._paramsE,
-          _paramsSE = retType._paramsSE;
-
-      if (_paramsE) {
-        exPropsStr = _paramsE;
-      }
-
-      if (_paramsSE) {
-        subExPropsStr = _paramsSE;
-      }
+      }, true);
     } //hash参数
 
 
-    var retP = _buildParams(node, fns, counter, false, level, exPropsStr, subExPropsStr, tagName),
+    var retP = _buildParams(node, fns, counter, false, level, tagName),
         paramsStr = retP[0],
         _paramsC = retP[1];
 
-    dataReferStr += _buildOptions(configE, useStringLocal, node, fns, exPropsStr, subExPropsStr, level, paramsStr !== '' ? '_params' + _paramsC : null, tagName, attrs);
+    dataReferStr += _buildOptions(configE, useStringLocal, node, fns, level, paramsStr !== '' ? '_params' + _paramsC : null, tagName, tagProps);
     dataReferStr += '\n];\n'; //添加匿名参数
 
     if (paramsStr !== '') {
-      dataReferStr += 'p1.aa(_params' + _paramsC + ', _dataRefer' + _dataReferC + ');\n';
+      dataReferStr += "".concat(GLOBAL, ".aa(_params") + _paramsC + ', _dataRefer' + _dataReferC + ');\n';
     }
 
     fnStr += paramsStr + dataReferStr;
 
     if (process.env.NODE_ENV !== 'production') {
       //如果扩展标签不存在则打印警告信息
-      fnStr += 'p1.tf(_ex' + _exC + ', \'' + node.ex + '\', \'ex\');\n';
+      fnStr += "".concat(GLOBAL, ".tf(_ex") + _exC + ', \'' + node.ex + '\', \'ex\');\n';
     } //渲染
 
 
@@ -3016,14 +2863,14 @@ function _buildNode(node, parent, fns, counter, retType, level, useStringLocal, 
         subName = ', \'' + typeS[1] + '\'';
       }
 
-      typeStr = _typeRefer ? 'p1.er(' + _typeRefer + ', \'' + _typeL + '\', p1, \'' + _type + '\', p2)' : 'p1.e(\'' + _typeL + '\', p1, \'' + _type + '\', p2' + subName + ')';
+      typeStr = _typeRefer ? "".concat(GLOBAL, ".er(") + _typeRefer + ', \'' + _typeL + "', ".concat(GLOBAL, ", '") + _type + "', ".concat(CONTEXT, ")") : "".concat(GLOBAL, ".e('") + _typeL + "', ".concat(GLOBAL, ", '") + _type + "', ".concat(CONTEXT) + subName + ')';
     } else {
-      typeStr = _typeRefer ? 'p1.en(' + _typeRefer + ', \'' + _type + '\')' : '\'' + _type + '\'';
+      typeStr = _typeRefer ? "".concat(GLOBAL, ".en(") + _typeRefer + ', \'' + _type + '\')' : '\'' + _type + '\'';
     }
 
     fnStr += '\nvar _type' + _typeC + ' = ' + typeStr + ';\n'; //节点参数
 
-    var _retP = _buildParams(node, fns, counter, useStringF, level, null, null, _tagName),
+    var _retP = _buildParams(node, fns, counter, useStringF, level, _tagName),
         _paramsStr = _retP[0],
         _paramsC2 = _retP[1];
 
@@ -3063,7 +2910,7 @@ function _buildNode(node, parent, fns, counter, retType, level, useStringLocal, 
   return fnStr;
 }
 
-function _buildContent(content, parent, fns, counter, retType, level, useStringLocal, tagName, attrs) {
+function _buildContent(content, parent, fns, counter, retType, level, useStringLocal, tagName, tagProps) {
   var fnStr = '';
 
   if (!content) {
@@ -3072,13 +2919,13 @@ function _buildContent(content, parent, fns, counter, retType, level, useStringL
 
   each(content, function (node) {
     var useString = node.useString;
-    fnStr += _buildNode(node, parent, fns, counter, retType, level, useString != null ? useString : useStringLocal, fns._firstNode && level == 0, tagName, attrs);
+    fnStr += _buildNode(node, parent, fns, counter, retType, level, useString != null ? useString : useStringLocal, fns._firstNode && level == 0, tagName, tagProps);
 
     if (fns._firstNode) {
       //输出字符串时模板第一个节点前面不加换行符
       fns._firstNode = false;
     }
-  }, false, true);
+  }, true);
   return fnStr;
 }
 
@@ -3091,23 +2938,23 @@ function _buildRender(node, parent, nodeType, retType, params, fns, level, useSt
   switch (nodeType) {
     case 1:
       //文本节点
-      retStr = (!useStringF || allowNewline || noLevel ? '' : isFirst ? parent.type !== 'nj_root' ? 'p1.fl(p2) + ' : '' : '\'\\n\' + ') + _buildLevelSpace(level, fns, allowNewline) + _buildLevelSpaceRt(useStringF, isFirst || noLevel) + params.text;
+      retStr = (!useStringF || allowNewline || noLevel ? '' : isFirst ? parent.type !== 'nj_root' ? "".concat(GLOBAL, ".fl(").concat(CONTEXT, ") + ") : '' : '\'\\n\' + ') + _buildLevelSpace(level, fns, allowNewline) + _buildLevelSpaceRt(useStringF, isFirst || noLevel) + params.text;
       break;
 
     case 2:
       //扩展标签
-      retStr = '_ex' + params._ex + '.apply(' + (params.fnH ? params.fnH + ' ? ' + params.fnH + '._njCtx : p2' : 'p2') + ', _dataRefer' + params._dataRefer + ')';
+      retStr = '_ex' + params._ex + '.apply(' + (params.fnH ? params.fnH + ' ? ' + params.fnH + ".source : ".concat(CONTEXT) : CONTEXT) + ', _dataRefer' + params._dataRefer + ')';
       break;
 
     case 3:
       //元素节点
       if (!useStringF) {
-        retStr = 'p1.H(_compParam' + params._compParam + ')';
+        retStr = "".concat(GLOBAL, ".H(_compParam") + params._compParam + ')';
       } else {
         if (allowNewline && allowNewline !== 'nlElem' || noLevel) {
           retStr = '';
         } else if (isFirst) {
-          retStr = parent.type !== 'nj_root' ? 'p1.fl(p2) + ' : '';
+          retStr = parent.type !== 'nj_root' ? "".concat(GLOBAL, ".fl(").concat(CONTEXT, ") + ") : '';
         } else {
           retStr = '\'\\n\' + ';
         }
@@ -3145,7 +2992,7 @@ function _buildRender(node, parent, nodeType, retType, params, fns, level, useSt
     } else {
       return '\nret += ' + retStr + ';\n';
     }
-  } else if (retType._paramsE || retType._paramsSE) {
+  } else if (retType._paramsE) {
     return '\n' + retStr + ';\n';
   } else {
     if (!useStringF) {
@@ -3178,7 +3025,7 @@ function _buildLevelSpace(level, fns, allowNewline) {
 
 function _buildLevelSpaceRt(useString, noSpace) {
   if (useString && !noSpace) {
-    return 'p1.ls(p2) + ';
+    return "".concat(GLOBAL, ".ls(").concat(CONTEXT, ") + ");
   }
 
   return '';
@@ -3189,8 +3036,6 @@ var buildRuntime = (function (astContent, ast, useString) {
     useString: useString,
     _no: 0,
     //扩展标签函数计数
-    _noT: 0,
-    //tmpl块模板函数计数
     _firstNode: true
   };
 
@@ -3238,7 +3083,7 @@ function compileStringTmpl(tmpl) {
         var last = xml.length - 1,
             lastChar = xml[last],
             lastChar3 = xml.substr(last - 2),
-            isComputed = lastChar === '#',
+            isAccessor = lastChar === '#',
             isSpread = lastChar3 === '...';
 
         if (isInBrace) {
@@ -3253,13 +3098,13 @@ function compileStringTmpl(tmpl) {
           }
         }
 
-        if (isComputed) {
+        if (isAccessor) {
           xml = xml.substr(0, last);
         } else if (isSpread) {
           xml = xml.substr(0, last - 2);
         }
 
-        split = (isComputed ? '#' : isSpread ? '...' : '') + SPLIT_FLAG + i;
+        split = (isAccessor ? '#' : isSpread ? '...' : '') + SPLIT_FLAG + i;
 
         if (!isInBrace) {
           split = tmplRule.startRule + split + tmplRule.endRule;
@@ -3275,7 +3120,7 @@ function compileStringTmpl(tmpl) {
       }
 
       fullXml += xml + split;
-    }, false, true); //Merge all include tags
+    }, true); //Merge all include tags
 
     var includeParser = nj.includeParser;
 
@@ -3391,7 +3236,7 @@ function _checkStringElem(xml, tmplRule, outputH) {
 
       var isEx = elem ? isExAll(elemName, tmplRule) : false;
 
-      if (isEx && !isEx[1] && (isPropS(elemName, tmplRule) || isStrPropS(elemName, tmplRule) || isParamsEx(isEx[3]) || exCompileConfig(isEx[3]).isProp)) {
+      if (isEx && !isEx[1] && (isPropS(elemName, tmplRule) || isStrPropS(elemName, tmplRule) || isParamsEx(isEx[3]) || exCompileConfig(isEx[3]).isDirective)) {
         parent = current;
         current = _createCurrent(_elemName, parent);
 
@@ -3429,7 +3274,7 @@ function _checkStringElem(xml, tmplRule, outputH) {
             if (_isEx || !inTextContent) {
               var cName = current.elemName;
 
-              if (cName.indexOf(SPLIT_FLAG) < 0 ? elemName === '/' + cName : elemName.indexOf(SPLIT_FLAG) > -1) {
+              if (cName.indexOf(SPLIT_FLAG) < 0 ? elemName === '/' + cName : elemName.indexOf(SPLIT_FLAG) > -1 || elemName === '//') {
                 //如果开始标签包含SPLIT_FLAG，则只要结束标签包含SPLIT_FLAG就认为该标签已关闭
                 current = current.parent;
               }
@@ -3519,19 +3364,34 @@ function _transformToEx(isStr, elemName, elemParams, tmplRule) {
 
 
 function _setElem(elem, elemName, elemParams, elemArr, bySelfClose, tmplRule, outputH) {
-  var ret, paramsEx;
+  var ret,
+      paramsEx,
+      fixedExTagName = fixExTagName(elemName, tmplRule);
+
+  if (fixedExTagName) {
+    elemName = fixedExTagName;
+  }
 
   if (isEx(elemName, tmplRule, true)) {
     ret = elem.substring(1, elem.length - 1);
+
+    if (fixedExTagName) {
+      ret = tmplRule.extensionRule + lowerFirst(ret);
+    }
+
+    var retS = _getSplitParams(ret, tmplRule, outputH);
+
+    ret = retS.elem;
+    paramsEx = retS.params;
   } else if (isStrPropS(elemName, tmplRule)) {
     ret = _transformToEx(true, elemName, elemParams, tmplRule);
   } else if (isPropS(elemName, tmplRule)) {
     ret = _transformToEx(false, elemName, elemParams, tmplRule);
   } else {
-    var retS = _getSplitParams(elem, tmplRule, outputH);
+    var _retS = _getSplitParams(elem, tmplRule, outputH);
 
-    ret = retS.elem;
-    paramsEx = retS.params;
+    ret = _retS.elem;
+    paramsEx = _retS.params;
   }
 
   if (bySelfClose) {
@@ -3560,7 +3420,7 @@ function _getSplitParams(elem, tmplRule, outputH) {
       firstChar = tmplRule.firstChar,
       lastChar = tmplRule.lastChar,
       spreadProp = tmplRule.spreadProp,
-      exAttrs = tmplRule.exAttrs;
+      directives = tmplRule.directives;
   var paramsEx; //Replace the parameter like "{...props}".
 
   elem = elem.replace(spreadProp, function (all, g1, propR, g3, prop) {
@@ -3576,7 +3436,7 @@ function _getSplitParams(elem, tmplRule, outputH) {
     return ' ';
   }); //Replace the parameter like "#show={false}".
 
-  elem = elem.replace(exAttrs, function (all, g1, g2, g3, g4, g5, g6, key, hasColon, hasEx, name, hasEqual, value) {
+  elem = elem.replace(directives, function (all, g1, g2, g3, g4, g5, g6, key, hasColon, hasEx, name, hasEqual, value) {
     if (hasEx == null) {
       return all;
     }
@@ -3611,7 +3471,7 @@ function _getSplitParams(elem, tmplRule, outputH) {
 
       return name;
     });
-    var exPreAst = [extensionRule + name + ' _njIsProp' + (args ? ' arguments="' + firstChar + startRule + '[' + args.join(',') + ']' + endRule + lastChar + '"' : '') + (modifiers ? ' modifiers="' + startRule + '[' + modifiers.join(',') + ']' + endRule + '"' : '') + (hasEqual ? '' : ' /')];
+    var exPreAst = [extensionRule + name + ' _njIsDirective' + (args ? ' arguments="' + firstChar + startRule + '[' + args.join(',') + ']' + endRule + lastChar + '"' : '') + (modifiers ? ' modifiers="' + startRule + '[' + modifiers.join(',') + ']' + endRule + '"' : '') + (hasEqual ? '' : ' /')];
     hasEqual && exPreAst.push((hasColon ? (outputH ? firstChar : '') + startRule + ' ' : '') + clearQuot(value) + (hasColon ? ' ' + endRule + (outputH ? lastChar : '') : ''));
     paramsEx.push(exPreAst);
     return ' ';

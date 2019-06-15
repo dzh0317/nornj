@@ -1,5 +1,5 @@
 /*!
-* NornJ template engine v5.0.0-rc.3
+* NornJ template engine v5.0.0-rc.14
 * (c) 2016-2019 Joe_Sky
 * Released under the MIT License.
 */
@@ -26,6 +26,7 @@
   nj.textMode = false;
   nj.noWsTag = 'nj-noWs';
   nj.noWsMode = false;
+  nj.fixTagName = true;
 
   function _typeof(obj) {
     if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
@@ -105,21 +106,18 @@
     return typeof length == 'number' && length >= 0;
   } //遍历数组或对象
 
-  function each(obj, func, context, isArr) {
+  function each(obj, func, isArr) {
     if (!obj) {
       return;
     }
 
     if (isArr == null) {
       isArr = isArrayLike(obj);
-    } //设置回调函数上下文
-
-
-    context = context ? context : obj;
+    }
 
     if (isArr) {
       for (var i = 0, l = obj.length; i < l; i++) {
-        var ret = func.call(context, obj[i], i, l);
+        var ret = func.call(obj, obj[i], i, l);
 
         if (ret === false) {
           break;
@@ -131,7 +129,7 @@
 
       for (var _i = 0; _i < _l; _i++) {
         var k = keys[_i],
-            _ret = func.call(context, obj[k], k, _i, _l);
+            _ret = func.call(obj, obj[k], k, _i, _l);
 
         if (_ret === false) {
           break;
@@ -208,7 +206,7 @@
     return value;
   } //Transform to camel-case
 
-  function toCamelCase(str) {
+  function camelCase(str) {
     if (str.indexOf('-') > -1) {
       str = str.replace(/-\w/g, function (letter) {
         return letter.substr(1).toUpperCase();
@@ -234,6 +232,9 @@
   function capitalize(str) {
     return str[0].toUpperCase() + str.substr(1);
   }
+  function lowerFirst(str) {
+    return str[0].toLowerCase() + str.substr(1);
+  }
   assign(nj, {
     defineProp: defineProp,
     defineProps: defineProps,
@@ -249,9 +250,10 @@
     throwIf: throwIf,
     warn: warn,
     obj: obj,
-    toCamelCase: toCamelCase,
+    camelCase: camelCase,
     assign: assign,
-    capitalize: capitalize
+    capitalize: capitalize,
+    lowerFirst: lowerFirst
   });
 
   var tools = /*#__PURE__*/Object.freeze({
@@ -272,9 +274,10 @@
     error: error,
     obj: obj,
     clearQuot: clearQuot,
-    toCamelCase: toCamelCase,
+    camelCase: camelCase,
     assign: assign,
-    capitalize: capitalize
+    capitalize: capitalize,
+    lowerFirst: lowerFirst
   });
 
   var components = nj.components,
@@ -314,11 +317,11 @@
 
         ret.push(comp);
       }
-    }, false, false);
+    }, false);
     return ret;
   }
   function getComponentConfig(name) {
-    return componentConfig.get(isString(name) ? components[name] : name);
+    return componentConfig.get(isString(name) ? components[name] || name : name);
   }
 
   function config (configs) {
@@ -410,15 +413,15 @@
       } //将连字符转为驼峰命名
 
 
-      key = toCamelCase(key);
+      key = camelCase(key);
       ret[key] = REGEX_NUM.test(value) ? Number(value) : value;
     }
 
     return ret;
   } //Get value from multiple datas
 
-  function getData(prop, data, hasCtx) {
-    var ret, obj;
+  function getData(prop, data, hasSource) {
+    var value, obj;
 
     if (!data) {
       data = this.data;
@@ -428,60 +431,46 @@
       obj = data[i];
 
       if (obj) {
-        ret = obj[prop];
+        value = obj[prop];
 
-        if (ret !== undefined) {
-          if (hasCtx) {
+        if (value !== undefined) {
+          if (hasSource) {
             return {
-              _njCtx: obj,
-              val: ret,
-              prop: prop
+              source: obj,
+              value: value,
+              prop: prop,
+              _njSrc: true
             };
           }
 
-          return ret;
+          return value;
         }
       }
     }
   }
-
-  function _getLevel(level, p2) {
-    if (level != null && p2.level != null) {
-      level += p2.level;
-    }
-
-    return level;
-  }
-
-  function getComputedData(fn, p2, level) {
+  function getAccessorData(fn, context) {
     if (fn == null) {
       return fn;
     }
 
-    if (fn.val._njTmpl) {
+    if (fn._njTmpl) {
       //模板函数
-      return fn.val.call({
-        _njData: p2.data,
-        _njParent: p2.parent,
-        _njIndex: p2.index,
-        _njLevel: _getLevel(level, p2),
-        _njIcp: p2.icp
-      });
+      return fn.call(context);
     } else {
       //普通函数
-      return fn.val.call(p2.data[p2.data.length - 1], p2);
+      return fn.call(context.$this, context);
     }
   }
-  function getElement(name, p1, nameO, p2, subName) {
+  function getElement(name, global, nameO, context, subName) {
     var element;
 
-    if (!p2.icp) {
-      element = p1.cp[name];
+    if (!context.icp) {
+      element = global.cp[name];
     } else {
-      element = getData(nameO, p2.icp);
+      element = getData(nameO, context.icp);
 
       if (!element) {
-        element = p1.cp[name];
+        element = global.cp[name];
       }
     }
 
@@ -491,8 +480,8 @@
 
     return element ? element : nameO;
   }
-  function getElementRefer(refer, name, p1, nameO, p2) {
-    return refer != null ? isString(refer) ? getElement(refer.toLowerCase(), p1, refer, p2) : refer : getElement(name, p1, nameO, p2);
+  function getElementRefer(refer, name, global, nameO, context) {
+    return refer != null ? isString(refer) ? getElement(refer.toLowerCase(), global, refer, context) : refer : getElement(name, global, nameO, context);
   }
   function getElementName(refer, name) {
     return refer != null && refer !== '' ? refer : name;
@@ -507,27 +496,17 @@
     }
   } //Rebuild local variables in the new context
 
-  function newContext(p2, p3) {
-    if (!p3) {
-      return p2;
+  function newContext(context, params) {
+    if (!params) {
+      return context;
     }
 
-    return {
-      data: p3.data ? arrayPush(p3.data, p2.data) : p2.data,
-      parent: p3.fallback ? p2 : p2.parent,
-      root: p2.root || p2,
-      index: 'index' in p3 ? p3.index : p2.index,
-      item: 'item' in p3 ? p3.item : p2.item,
-      level: p2.level,
-      getData: getData,
-
-      get ctxInstance() {
-        return this.data[this.data.length - 1];
-      },
-
-      d: getData,
-      icp: p2.icp
-    };
+    return assign({}, context, {
+      data: params.data ? arrayPush(params.data, context.data) : context.data,
+      parent: params.newParent ? context : context.parent,
+      index: params.index != null ? params.index : context.index,
+      item: params.item != null ? params.item : context.item
+    });
   } //修正属性名
 
   function fixPropName(name) {
@@ -556,13 +535,13 @@
     return ret;
   } //创建扩展标签子节点函数
 
-  function exRet(p1, p2, fn, p4, p5) {
+  function exRet(global, context, fn) {
     return function (param) {
-      return fn(p1, p2, param, p4, p5);
+      return fn(global, context, param);
     };
   }
 
-  function _getLocalComponents(localConfigs, initCtx) {
+  function _getLocalComponents(localConfigs) {
     var icp;
 
     if (localConfigs && localConfigs.components) {
@@ -573,47 +552,47 @@
       }
     }
 
-    if (initCtx && initCtx._njIcp) {
-      icp = icp ? arrayPush(icp, initCtx._njIcp) : initCtx._njIcp;
-    }
-
     return icp;
   } //构建可运行的模板函数
 
 
   function tmplWrap(configs, main) {
-    return function (lc, lc2) {
-      var initCtx = this,
+    return function (param1, param2) {
+      var ctx = this,
           data = arraySlice(arguments);
-      return main(configs, {
-        data: initCtx && initCtx._njData ? arrayPush(data, initCtx._njData) : data,
-        parent: initCtx ? initCtx._njParent : null,
-        index: initCtx ? initCtx._njIndex : null,
-        item: initCtx ? initCtx._njItem : null,
-        level: initCtx ? initCtx._njLevel : null,
+      return main(configs, ctx && ctx._njCtx ? assign({}, ctx, {
+        data: arrayPush(data, ctx.data)
+      }) : {
+        data: data,
         getData: getData,
+
+        get $this() {
+          return this.data[this.data.length - 1];
+        },
+
         d: getData,
-        icp: _getLocalComponents(lc && lc._njParam ? lc2 : lc, initCtx)
+        icp: _getLocalComponents(param1 && param1._njParam ? param2 : param1),
+        _njCtx: true
       });
     };
   }
 
-  function levelSpace(p2) {
-    if (p2.level == null) {
+  function levelSpace(context) {
+    if (context.level == null) {
       return '';
     }
 
     var ret = '';
 
-    for (var i = 0; i < p2.level; i++) {
+    for (var i = 0; i < context.level; i++) {
       ret += '  ';
     }
 
     return ret;
   }
 
-  function firstNewline(p2) {
-    return p2.index == null ? '' : p2.index == 0 ? '' : '\n';
+  function firstNewline(context) {
+    return context.index == null ? '' : context.index == 0 ? '' : '\n';
   }
 
   function createElementApply(p) {
@@ -621,7 +600,7 @@
   }
 
   function callFilter(filter) {
-    return filter._njCtx ? filter.val.bind(filter._njCtx) : filter;
+    return filter.source ? filter.value.bind(filter.source) : filter;
   } //创建模板函数
 
 
@@ -635,7 +614,7 @@
       tf: throwIf,
       wn: warn,
       n: newContext,
-      c: getComputedData,
+      c: getAccessorData,
       sp: styleProps,
       r: exRet,
       e: getElement,
@@ -644,7 +623,6 @@
       aa: addArgs,
       an: assign,
       g: nj.global,
-      l: _getLevel,
       cf: callFilter
     };
 
@@ -660,16 +638,12 @@
     }
 
     each(fns, function (v, k) {
-      if (k.indexOf('main') === 0) {
+      if (k === 'main') {
         //将每个主函数构建为可运行的模板函数
         configs[k] = tmplWrap(configs, v);
         defineProps(configs[k], {
           _njTmpl: {
             value: true
-          },
-          tmplName: {
-            //设置函数名
-            value: v._njName
           }
         });
         configs['_' + k] = v;
@@ -677,9 +651,16 @@
         //扩展标签函数
         configs[k] = v;
       }
-    }, false, false);
+    }, false);
     return configs;
   }
+
+  var SwitchPrefixConfig;
+
+  (function (SwitchPrefixConfig) {
+    SwitchPrefixConfig["OnlyLowerCase"] = "onlyLowerCase";
+    SwitchPrefixConfig["OnlyUpperCase"] = "onlyUpperCase";
+  })(SwitchPrefixConfig || (SwitchPrefixConfig = {}));
 
   var extensions = {
     'if': function _if(value, options) {
@@ -713,7 +694,7 @@
                   ret = elseFn();
                 }
               }
-            }, false, true);
+            }, true);
           } else {
             if (elseFn) {
               ret = elseFn();
@@ -729,7 +710,7 @@
       return ret;
     },
     'else': function _else(options) {
-      return options.subExProps['else'] = options.children;
+      return options.tagProps['else'] = options.children;
     },
     'elseif': function elseif(value, options) {
       if (value && value._njOpts) {
@@ -737,13 +718,14 @@
         value = options.props.condition || options.props.value;
       }
 
-      var exProps = options.subExProps;
+      var _options = options,
+          tagProps = _options.tagProps;
 
-      if (!exProps.elseifs) {
-        exProps.elseifs = [];
+      if (!tagProps.elseifs) {
+        tagProps.elseifs = [];
       }
 
-      exProps.elseifs.push({
+      tagProps.elseifs.push({
         value: value,
         fn: options.children
       });
@@ -766,7 +748,7 @@
             ret = props['else']();
           }
         }
-      }, false, true);
+      }, true);
       return ret;
     },
     each: function each$1(list, options) {
@@ -792,29 +774,21 @@
             data: [item],
             index: isArrayLike$1 ? index : len,
             item: item,
-            fallback: true
+            newParent: true
           };
-          var extra;
 
           var _len = isArrayLike$1 ? len : lenObj;
 
-          extra = {
+          var extra = {
             '@first': param.index === 0,
             '@last': param.index === _len - 1
           };
 
           if (!isArrayLike$1) {
-            if (!extra) {
-              extra = {};
-            }
-
             extra['@key'] = index;
           }
 
-          if (extra) {
-            param.data.push(extra);
-          }
-
+          param.data.push(extra);
           var retI = options.children(param);
 
           if (useString) {
@@ -822,7 +796,7 @@
           } else {
             ret.push(retI);
           }
-        }, false, isArrayLike$1); //Return null when not use string and result is empty.
+        }, isArrayLike$1); //Return null when not use string and result is empty.
 
         if (!useString && !ret.length) {
           ret = null;
@@ -845,7 +819,7 @@
     },
     //Parameter
     prop: function prop(name, options) {
-      var ret = options.children(),
+      var ret = options.value(),
           //Get parameter value
       value;
 
@@ -856,121 +830,37 @@
         value = !options.useString ? true : name;
       }
 
-      options.exProps[options.outputH ? fixPropName(name) : name] = value;
+      options.tagProps[options.outputH ? fixPropName(name) : name] = value;
     },
     //Spread parameters
     spread: function spread(props, options) {
+      var tagProps = options.tagProps;
       each(props, function (v, k) {
-        options.exProps[k] = v;
-      }, false, false);
+        tagProps[k] === undefined && (options.tagProps[k] = v);
+      }, false);
     },
     show: function show(options) {
       if (!options.value()) {
-        var attrs = options.attrs,
+        var tagProps = options.tagProps,
             useString = options.useString;
 
-        if (!attrs.style) {
-          attrs.style = useString ? '' : {};
+        if (!tagProps.style) {
+          tagProps.style = useString ? '' : {};
         }
 
         if (useString) {
-          attrs.style += (attrs.style ? ';' : '') + 'display:none';
-        } else if (isArray(attrs.style)) {
-          attrs.style.push({
+          tagProps.style += (tagProps.style ? ';' : '') + 'display:none';
+        } else if (isArray(tagProps.style)) {
+          tagProps.style.push({
             display: 'none'
           });
         } else {
-          attrs.style.display = 'none';
+          tagProps.style.display = 'none';
         }
       }
-    },
-    'for': function _for(i, to, options) {
-      var step = 1;
-      var indexKey;
-
-      if (i && i._njOpts) {
-        options = i;
-        var _options = options,
-            props = _options.props;
-        Object.keys(props).forEach(function (prop) {
-          var value = props[prop];
-
-          if (prop === 'to') {
-            to = value;
-          } else if (prop === 'step') {
-            step = value;
-          } else {
-            i = value;
-            indexKey = prop;
-          }
-        });
-      } else if (options.props) {
-        step = options.props.step || 1;
-      }
-
-      var ret,
-          useString = options.useString;
-
-      if (useString) {
-        ret = '';
-      } else {
-        ret = [];
-      }
-
-      for (; i <= to; i += step) {
-        var retI = options.children({
-          data: indexKey ? [_defineProperty({}, indexKey, i)] : null,
-          index: i,
-          fallback: true
-        });
-
-        if (useString) {
-          ret += retI;
-        } else {
-          ret.push(retI);
-        }
-      }
-
-      return ret;
     },
     obj: function obj(options) {
       return options.props;
-    },
-    list: function list() {
-      var args = arguments,
-          last = args.length - 1,
-          options = args[last];
-
-      if (last > 0) {
-        var ret = arraySlice(args, 0, last);
-
-        if (options.useString) {
-          ret = ret.join('');
-        }
-
-        return ret;
-      } else {
-        return [options.children()];
-      }
-    },
-    fn: function fn(options) {
-      var props = options.props;
-      return function () {
-        var _arguments = arguments;
-        var params;
-
-        if (props) {
-          params = {};
-          var paramNames = Object.keys(props);
-          paramNames.forEach(function (v, i) {
-            return params[paramNames[i]] = _arguments[i];
-          });
-        }
-
-        return options.children({
-          data: [params]
-        });
-      };
     },
     block: function block(options) {
       return options.children();
@@ -990,13 +880,13 @@
       }
     },
     arg: function arg(options) {
-      var exProps = options.exProps;
+      var tagProps = options.tagProps;
 
-      if (!exProps.args) {
-        exProps.args = [];
+      if (!tagProps.args) {
+        tagProps.args = [];
       }
 
-      exProps.args.push(options.children());
+      tagProps.args.push(options.value());
     },
     css: function css(options) {
       return options.props.style;
@@ -1008,15 +898,13 @@
       onlyGlobal: false,
       useString: false,
       newContext: true,
-      exProps: false,
-      isProp: false,
-      subExProps: false,
-      isSub: false,
-      addSet: false,
-      useExpressionInJsx: 'onlyTemplateLiteral',
+      isSubTag: false,
+      isDirective: false,
+      isBindable: false,
+      useExpressionInProps: true,
       hasName: true,
       noTagName: false,
-      hasAttrs: true,
+      hasTagProps: true,
       hasTmplCtx: true,
       hasOutputH: false
     };
@@ -1036,74 +924,60 @@
     onlyGlobal: true,
     newContext: false,
     hasName: false,
-    hasAttrs: false,
+    hasTagProps: false,
     hasTmplCtx: false
   }; //Extension default config
 
   var extensionConfig = {
     'if': _config(_defaultCfg),
     'else': _config(_defaultCfg, {
-      subExProps: true,
-      isSub: true
+      isSubTag: true,
+      hasTagProps: true
     }),
     'switch': _config(_defaultCfg, {
-      needPrefix: 'onlyUpperCase'
+      needPrefix: SwitchPrefixConfig.OnlyLowerCase
     }),
     each: _config(_defaultCfg, {
       newContext: {
         item: 'item',
         index: 'index',
-        datas: {
+        data: {
           first: ['@first', 'first'],
-          last: ['@last', 'last']
-        }
-      }
-    }),
-    'for': _config(_defaultCfg, {
-      newContext: {
-        index: 'index',
-        getDatasFromProp: {
-          except: ['to', 'step', 'index']
+          last: ['@last', 'last'],
+          key: ['@key', 'key']
         }
       }
     }),
     prop: _config(_defaultCfg, {
-      exProps: true,
-      subExProps: true,
-      isProp: true,
-      onlyTemplate: true
+      isDirective: true,
+      needPrefix: true,
+      hasTagProps: true
     }),
     obj: _config(_defaultCfg, {
-      onlyTemplate: true
-    }),
-    fn: _config(_defaultCfg, {
-      newContext: true,
-      onlyTemplate: true
+      needPrefix: true
     }),
     'with': _config(_defaultCfg, {
       newContext: {
-        getDatasFromProp: true
+        getDataFromProps: true
       }
     }),
     style: {
-      useExpressionInJsx: false,
+      useExpressionInProps: false,
       needPrefix: true
     }
   };
   extensionConfig.elseif = _config(extensionConfig['else']);
   extensionConfig.spread = _config(extensionConfig.prop);
-  extensionConfig.list = _config(extensionConfig.obj);
   extensionConfig.block = _config(extensionConfig.obj);
-  extensionConfig.pre = _config(extensionConfig.obj);
   extensionConfig.arg = _config(extensionConfig.prop);
   extensionConfig.show = _config(extensionConfig.prop, {
-    isDirective: true,
     noTagName: true,
-    hasAttrs: true,
     hasOutputH: true
   });
   extensionConfig.css = _config(extensionConfig.obj); //Extension alias
 
+  extensions['for'] = extensions.each;
+  extensionConfig['for'] = _config(extensionConfig.each);
   extensions['case'] = extensions.elseif;
   extensionConfig['case'] = extensionConfig.elseif;
   extensions['empty'] = extensions['default'] = extensions['else'];
@@ -1144,12 +1018,16 @@
             extensionConfig[name] = _config();
           }
 
-          assign(extensionConfig[name], _options3);
+          if (isObject(_options3)) {
+            assign(extensionConfig[name], _options3);
+          } else {
+            extensionConfig[name] = _config();
+          }
         } else {
           extensionConfig[name] = _config(_options3);
         }
       }
-    }, false, false);
+    }, false);
   }
   assign(nj, {
     extensions: extensions,
@@ -1157,7 +1035,7 @@
     registerExtension: registerExtension
   });
 
-  var digitsRE = /(\d{3})(?=\d)/g; //Global filter list
+  var REGEX_DIGITS_RE = /(\d{3})(?=\d)/g; //Global filter list
 
   var filters = {
     //Get properties
@@ -1166,16 +1044,20 @@
         return obj;
       }
 
-      if (obj._njCtx) {
+      if (obj._njSrc) {
         return {
-          _njCtx: obj.val,
-          val: obj.val[prop],
-          prop: prop
+          source: obj.value,
+          value: obj.value[prop],
+          prop: prop,
+          parent: obj,
+          _njSrc: true
         };
       } else if (callFn) {
         return {
-          obj: obj,
-          prop: prop
+          source: obj,
+          value: obj[prop],
+          prop: prop,
+          _njSrc: true
         };
       }
 
@@ -1183,24 +1065,32 @@
     },
     //Call function
     _: function _(fn, args) {
-      return fn && fn.obj[fn.prop] != null ? fn.obj[fn.prop].apply(fn.obj, args) : null;
+      if (fn == null) {
+        return fn;
+      }
+
+      if (fn._njSrc) {
+        var _fn = fn.source[fn.prop];
+        return _fn != null ? _fn.apply(fn.source, args) : _fn;
+      }
+
+      return fn.apply(null, args);
     },
-    //Get computed properties
+    //Get accessor properties
     '#': function _(obj, prop, options) {
       if (obj == null) {
         return obj;
       }
 
-      return getComputedData({
-        val: obj[prop],
-        _njCtx: obj
-      }, options.context, options.level);
+      return getAccessorData(obj[prop], options.context);
     },
     '**': function _(val1, val2) {
-      return Math.pow(val1, val2);
+      var ret = Math.pow(val1, val2);
+      return isNaN(ret) ? 0 : ret;
     },
     '%%': function _(val1, val2) {
-      return Math.floor(val1 / val2);
+      var ret = Math.floor(val1 / val2);
+      return isNaN(ret) ? 0 : ret;
     },
     //Ternary operator
     '?:': function _(val, val1, val2) {
@@ -1212,11 +1102,13 @@
     //Convert to int 
     int: function int(val) {
       var radix = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 10;
-      return parseInt(val, radix);
+      var ret = parseInt(val, radix);
+      return isNaN(ret) ? 0 : ret;
     },
     //Convert to float 
-    float: function float(val) {
-      return parseFloat(val);
+    float: function float(val, bit) {
+      var ret = parseFloat(val);
+      return isNaN(ret) ? 0 : bit != null ? ret.toFixed(bit) : ret;
     },
     //Convert to boolean 
     bool: function bool(val) {
@@ -1250,8 +1142,26 @@
     capitalize: function capitalize$1(str) {
       return capitalize(str);
     },
+    lowerFirst: function lowerFirst$1(str) {
+      return lowerFirst(str);
+    },
+    camelCase: function camelCase$1(str) {
+      return camelCase(str);
+    },
+    isObject: function isObject$1(val) {
+      return isObject(val);
+    },
+    isNumber: function isNumber$1(val) {
+      return isNumber(val);
+    },
+    isString: function isString$1(val) {
+      return isString(val);
+    },
+    isArrayLike: function isArrayLike$1(val) {
+      return isArrayLike(val);
+    },
     currency: function currency(value, decimals, _currency) {
-      if (!(value - parseFloat(value) >= 0)) return '';
+      if (!(value - parseFloat(value) >= 0)) return filterConfig.currency.placeholder;
       value = parseFloat(value);
       _currency = decimals != null && typeof decimals == 'string' ? decimals : _currency;
       _currency = _currency != null && typeof _currency == 'string' ? _currency : filterConfig.currency.symbol;
@@ -1266,7 +1176,7 @@
       var _float = decimals ? stringified.slice(-1 - decimals) : '';
 
       var sign = value < 0 ? '-' : '';
-      return sign + _currency + head + _int.slice(i).replace(digitsRE, '$1,') + _float;
+      return sign + _currency + head + _int.slice(i).replace(REGEX_DIGITS_RE, '$1,') + _float;
     }
   };
 
@@ -1284,8 +1194,10 @@
     var ret = {
       onlyGlobal: false,
       hasOptions: false,
+      isOperator: false,
       hasLevel: false,
-      hasTmplCtx: true
+      hasTmplCtx: true,
+      alias: null
     };
 
     if (params) {
@@ -1327,22 +1239,17 @@
     rLt: _config$1(_defaultCfg$1),
     '<=>': _config$1(_defaultCfg$1),
     capitalize: _config$1(_defaultCfg$1),
+    lowerFirst: _config$1(_defaultCfg$1),
+    camelCase: _config$1(_defaultCfg$1),
+    isObject: _config$1(_defaultCfg$1),
+    isNumber: _config$1(_defaultCfg$1),
+    isString: _config$1(_defaultCfg$1),
+    isArrayLike: _config$1(_defaultCfg$1),
     currency: _config$1(_defaultCfg$1, {
-      symbol: '$'
+      symbol: '$',
+      placeholder: ''
     })
-  };
-  var operators = ['+=', '+', '-[0-9]', '-', '**', '*', '%%', '%', '===', '!==', '==', '!=', '<=>', '<=', '>=', '=', '..<', '<', '>', '&&', '||', '?:', '?', ':', '../', '..', '/'];
-  var REGEX_OPERATORS_ESCAPE = /\*|\||\/|\.|\?|\+/g;
-
-  function _createRegexOperators() {
-    return new RegExp(operators.map(function (o) {
-      return o.replace(REGEX_OPERATORS_ESCAPE, function (match) {
-        return '\\' + match;
-      });
-    }).join('|'), 'g');
-  }
-
-  nj.REGEX_OPERATORS = _createRegexOperators(); //Register filter and also can batch add
+  }; //Register filter and also can batch add
 
   function registerFilter(name, filter, options, mergeConfig) {
     var params = name;
@@ -1360,6 +1267,27 @@
         var _filter = v.filter,
             _options = v.options;
 
+        if (_options) {
+          if (_options.isOperator) {
+            var createRegexOperators = nj.createRegexOperators;
+
+            if (createRegexOperators) {
+              createRegexOperators(name);
+            }
+          }
+
+          var alias = _options.alias;
+
+          if (alias) {
+            var createFilterAlias = nj.createFilterAlias;
+
+            if (createFilterAlias) {
+              createFilterAlias(name, alias);
+              name = alias;
+            }
+          }
+        }
+
         if (_filter) {
           filters[name] = _filter;
         } else if (!mergeConfig) {
@@ -1371,12 +1299,16 @@
             filterConfig[name] = _config$1();
           }
 
-          assign(filterConfig[name], _options);
+          if (isObject(_options)) {
+            assign(filterConfig[name], _options);
+          } else {
+            filterConfig[name] = _config$1();
+          }
         } else {
           filterConfig[name] = _config$1(_options);
         }
       }
-    }, false, false);
+    }, false);
   }
   assign(nj, {
     filters: filters,
@@ -1426,7 +1358,7 @@
   }
 
   var compile = _createCompile();
-  var compileH = _createCompile(true);
+  var compileH = _createCompile();
 
   function _createRender(outputH) {
     return function (tmpl, options) {

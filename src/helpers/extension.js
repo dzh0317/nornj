@@ -1,6 +1,7 @@
 ﻿import nj from '../core';
 import * as tools from '../utils/tools';
 import * as tranData from '../transforms/transformData';
+import { SwitchPrefixConfig } from './enums';
 
 //Global extension list
 export const extensions = {
@@ -32,7 +33,7 @@ export const extensions = {
                 ret = elseFn();
               }
             }
-          }, false, true);
+          }, true);
         } else {
           if (elseFn) {
             ret = elseFn();
@@ -48,7 +49,7 @@ export const extensions = {
     return ret;
   },
 
-  'else': options => options.subExProps['else'] = options.children,
+  'else': options => options.tagProps['else'] = options.children,
 
   'elseif': (value, options) => {
     if (value && value._njOpts) {
@@ -56,11 +57,11 @@ export const extensions = {
       value = options.props.condition || options.props.value;
     }
 
-    const exProps = options.subExProps;
-    if (!exProps.elseifs) {
-      exProps.elseifs = [];
+    const { tagProps } = options;
+    if (!tagProps.elseifs) {
+      tagProps.elseifs = [];
     }
-    exProps.elseifs.push({
+    tagProps.elseifs.push({
       value,
       fn: options.children
     });
@@ -85,7 +86,7 @@ export const extensions = {
           ret = props['else']();
         }
       }
-    }, false, true);
+    }, true);
 
     return ret;
   },
@@ -113,25 +114,19 @@ export const extensions = {
           data: [item],
           index: isArrayLike ? index : len,
           item,
-          fallback: true
+          newParent: true
         };
 
-        let extra;
         const _len = isArrayLike ? len : lenObj;
-        extra = {
+        const extra = {
           '@first': param.index === 0,
           '@last': param.index === _len - 1
         };
 
         if (!isArrayLike) {
-          if (!extra) {
-            extra = {};
-          }
           extra['@key'] = index;
         }
-        if (extra) {
-          param.data.push(extra);
-        }
+        param.data.push(extra);
 
         let retI = options.children(param);
         if (useString) {
@@ -139,7 +134,7 @@ export const extensions = {
         } else {
           ret.push(retI);
         }
-      }, false, isArrayLike);
+      }, isArrayLike);
 
       //Return null when not use string and result is empty.
       if (!useString && !ret.length) {
@@ -163,7 +158,7 @@ export const extensions = {
 
   //Parameter
   prop: (name, options) => {
-    let ret = options.children(), //Get parameter value
+    let ret = options.value(), //Get parameter value
       value;
 
     if (ret !== undefined) {
@@ -172,121 +167,40 @@ export const extensions = {
       value = !options.useString ? true : name;
     }
 
-    options.exProps[options.outputH ? tranData.fixPropName(name) : name] = value;
+    options.tagProps[options.outputH ? tranData.fixPropName(name) : name] = value;
   },
 
   //Spread parameters
   spread: (props, options) => {
+    const { tagProps } = options;
     tools.each(props, (v, k) => {
-      options.exProps[k] = v;
-    }, false, false);
+      tagProps[k] === undefined && (options.tagProps[k] = v);
+    }, false);
   },
 
   show: options => {
     if (!options.value()) {
       const {
-        attrs,
+        tagProps,
         useString
       } = options;
 
-      if (!attrs.style) {
-        attrs.style = useString ? '' : {};
+      if (!tagProps.style) {
+        tagProps.style = useString ? '' : {};
       }
       if (useString) {
-        attrs.style += (attrs.style ? ';' : '') + 'display:none';
+        tagProps.style += (tagProps.style ? ';' : '') + 'display:none';
       }
-      else if (tools.isArray(attrs.style)) {
-        attrs.style.push({ display: 'none' });
+      else if (tools.isArray(tagProps.style)) {
+        tagProps.style.push({ display: 'none' });
       }
       else {
-        attrs.style.display = 'none';
+        tagProps.style.display = 'none';
       }
     }
-  },
-
-  'for': (i, to, options) => {
-    let step = 1;
-    let indexKey;
-
-    if (i && i._njOpts) {
-      options = i;
-      const { props } = options;
-      Object.keys(props).forEach(prop => {
-        const value = props[prop];
-        if (prop === 'to') {
-          to = value;
-        }
-        else if (prop === 'step') {
-          step = value;
-        }
-        else {
-          i = value;
-          indexKey = prop;
-        }
-      });
-    }
-    else if (options.props) {
-      step = options.props.step || 1;
-    }
-
-    let ret, useString = options.useString;
-    if (useString) {
-      ret = '';
-    } else {
-      ret = [];
-    }
-
-    for (; i <= to; i += step) {
-      let retI = options.children({
-        data: indexKey ? [{ [indexKey]: i }] : null,
-        index: i,
-        fallback: true
-      });
-
-      if (useString) {
-        ret += retI;
-      } else {
-        ret.push(retI);
-      }
-    }
-
-    return ret;
   },
 
   obj: options => options.props,
-
-  list: function () {
-    let args = arguments,
-      last = args.length - 1,
-      options = args[last];
-
-    if (last > 0) {
-      let ret = tools.arraySlice(args, 0, last);
-      if (options.useString) {
-        ret = ret.join('');
-      }
-
-      return ret;
-    } else {
-      return [options.children()];
-    }
-  },
-
-  fn: options => {
-    const { props } = options;
-
-    return function () {
-      let params;
-      if (props) {
-        params = {};
-
-        const paramNames = Object.keys(props);
-        paramNames.forEach((v, i) => params[paramNames[i]] = arguments[i]);
-      }
-
-      return options.children({ data: [params] });
-    };
-  },
 
   block: options => options.children(),
 
@@ -310,12 +224,12 @@ export const extensions = {
   },
 
   arg: options => {
-    const { exProps } = options;
-    if (!exProps.args) {
-      exProps.args = [];
+    const { tagProps } = options;
+    if (!tagProps.args) {
+      tagProps.args = [];
     }
 
-    exProps.args.push(options.children());
+    tagProps.args.push(options.value());
   },
 
   css: options => options.props.style
@@ -326,15 +240,13 @@ function _config(params, extra) {
     onlyGlobal: false,
     useString: false,
     newContext: true,
-    exProps: false,
-    isProp: false,
-    subExProps: false,
-    isSub: false,
-    addSet: false,
-    useExpressionInJsx: 'onlyTemplateLiteral',
+    isSubTag: false,
+    isDirective: false,
+    isBindable: false,
+    useExpressionInProps: true,
     hasName: true,
     noTagName: false,
-    hasAttrs: true,
+    hasTagProps: true,
     hasTmplCtx: true,
     hasOutputH: false
   };
@@ -348,45 +260,39 @@ function _config(params, extra) {
   return ret;
 }
 
-const _defaultCfg = { onlyGlobal: true, newContext: false, hasName: false, hasAttrs: false, hasTmplCtx: false };
+const _defaultCfg = { onlyGlobal: true, newContext: false, hasName: false, hasTagProps: false, hasTmplCtx: false };
 
 //Extension default config
 export const extensionConfig = {
   'if': _config(_defaultCfg),
-  'else': _config(_defaultCfg, { subExProps: true, isSub: true }),
-  'switch': _config(_defaultCfg, { needPrefix: 'onlyUpperCase' }),
+  'else': _config(_defaultCfg, { isSubTag: true, hasTagProps: true }),
+  'switch': _config(_defaultCfg, { needPrefix: SwitchPrefixConfig.OnlyLowerCase }),
   each: _config(_defaultCfg, {
     newContext: {
       item: 'item',
       index: 'index',
-      datas: {
+      data: {
         first: ['@first', 'first'],
-        last: ['@last', 'last']
+        last: ['@last', 'last'],
+        key: ['@key', 'key']
       }
     }
   }),
-  'for': _config(_defaultCfg, {
-    newContext: {
-      index: 'index',
-      getDatasFromProp: { except: ['to', 'step', 'index'] }
-    }
-  }),
-  prop: _config(_defaultCfg, { exProps: true, subExProps: true, isProp: true, onlyTemplate: true }),
-  obj: _config(_defaultCfg, { onlyTemplate: true }),
-  fn: _config(_defaultCfg, { newContext: true, onlyTemplate: true }),
-  'with': _config(_defaultCfg, { newContext: { getDatasFromProp: true } }),
-  style: { useExpressionInJsx: false, needPrefix: true }
+  prop: _config(_defaultCfg, { isDirective: true, needPrefix: true, hasTagProps: true }),
+  obj: _config(_defaultCfg, { needPrefix: true }),
+  'with': _config(_defaultCfg, { newContext: { getDataFromProps: true } }),
+  style: { useExpressionInProps: false, needPrefix: true }
 };
 extensionConfig.elseif = _config(extensionConfig['else']);
 extensionConfig.spread = _config(extensionConfig.prop);
-extensionConfig.list = _config(extensionConfig.obj);
 extensionConfig.block = _config(extensionConfig.obj);
-extensionConfig.pre = _config(extensionConfig.obj);
 extensionConfig.arg = _config(extensionConfig.prop);
-extensionConfig.show = _config(extensionConfig.prop, { isDirective: true, noTagName: true, hasAttrs: true, hasOutputH: true });
+extensionConfig.show = _config(extensionConfig.prop, { noTagName: true, hasOutputH: true });
 extensionConfig.css = _config(extensionConfig.obj);
 
 //Extension alias
+extensions['for'] = extensions.each;
+extensionConfig['for'] = _config(extensionConfig.each);
 extensions['case'] = extensions.elseif;
 extensionConfig['case'] = extensionConfig.elseif;
 extensions['empty'] = extensions['default'] = extensions['else'];
@@ -423,13 +329,18 @@ export function registerExtension(name, extension, options, mergeConfig) {
         if (!extensionConfig[name]) {
           extensionConfig[name] = _config();
         }
-        tools.assign(extensionConfig[name], options);
+        if (tools.isObject(options)) {
+          tools.assign(extensionConfig[name], options);
+        }
+        else {
+          extensionConfig[name] = _config();
+        }
       }
       else {
         extensionConfig[name] = _config(options);
       }
     }
-  }, false, false);
+  }, false);
 }
 
 tools.assign(nj, {

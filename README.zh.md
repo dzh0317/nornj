@@ -10,21 +10,23 @@
 
 ```
 
-`NornJ`(读音[ˈnɔ:ndʒeɪ]，简称`nj`)是一个可以同React一起工作的模板引擎，**JSX的增强或替代工具**。
+`NornJ`(读音[ˌnɔ:nˈdʒeɪ]，简称`nj`)是一个可以同React一起工作的模板引擎，**JSX的增强或替代工具**。
 
 [![NPM Version][npm-image]][npm-url]
 <a href="https://www.npmjs.com/package/nornj"><img src="https://img.shields.io/npm/l/nornj.svg" alt="License"></a>
 <a href="https://travis-ci.org/joe-sky/nornj"><img src="https://travis-ci.org/joe-sky/nornj.svg?branch=master" alt="Travis CI Status"/></a>
 <a href="https://codecov.io/gh/joe-sky/nornj"><img src="https://codecov.io/gh/joe-sky/nornj/branch/master/graph/badge.svg" alt="Codecov" /></a>
 [![NPM Downloads][downloads-image]][npm-url]
-[![](https://img.shields.io/bundlephobia/minzip/nornj@5.0.0-rc.1.svg?style=flat)](https://bundlephobia.com/result?p=nornj@next)
+[![](https://img.shields.io/bundlephobia/minzip/nornj@next.svg?style=flat)](https://bundlephobia.com/result?p=nornj@next)
 
 [English](https://github.com/joe-sky/nornj/blob/master/README.md) | 简体中文
 
+> 通知：NornJ的最新版`5.0.0`即将发布，旧版`0.4.x`将不再更新。
+
 ## 文档
 
-* [NornJ指南(github pages版)](https://joe-sky.github.io/nornj-guide)
-* [NornJ指南(gitbook版)](https://joe-sky.gitbooks.io/nornj-guide)
+* [NornJ指南(v5)](https://joe-sky.gitbooks.io/nornj-guide/zh/)
+* [NornJ指南(v0.4)](https://joe-sky.github.io/nornj-guide)
 
 ## 概述
 
@@ -33,7 +35,7 @@
 * 支持流程控制语法：
 
 ```js
-<each of={[1, 2, 3]}><i>{item}</i></each>
+<Each of={[1, 2, 3]}><i>{item}</i></Each>
 ```
 
 * 支持指令语法：
@@ -77,14 +79,14 @@ class App extends Component {
           }
         `</style>
         <ul>
-          <each of={todos} item="todo">
-            <if condition={index > 5}>
+          <Each of={todos} item="todo">
+            <If condition={index > 5}>
               <li>{todo * 2}</li>
-              <elseif condition={index > 10}>
+              <Elseif condition={index > 10}>
                 <li>{todo * 3}</li>
-              </elseif>
-            </if>
-          </each>
+              </Elseif>
+            </If>
+          </Each>
         </ul>
         <button n-show={todos.length > 0} onClick={this.addTodo}>Add Todo</button>
       </div>
@@ -98,19 +100,19 @@ class App extends Component {
 * 使用`tagged templates`语法(结合[styled-components](https://github.com/styled-components/styled-components))：
 
 ```js
-const template = nj`
+const template = html`
   <Container>
     <ul>
-      <#each of={todos}>
-        <#if {@index > 5}>
+      <each of={todos}>
+        <if {@index > 5}>
           <li>{@item * 2}</li>
-          <#elseif {@index > 10}>
+          <elseif {@index > 10}>
             <li>{@item * 3}</li>
-          </#elseif>
-        </#if>
-      </#each>
+          </elseif>
+        </if>
+      </each>
     </ul>
-    <button :#show="todos.length > 0" :onClick="addTodo">Add Todo</button>
+    <button n-show="{todos.length > 0}" :onClick="addTodo">Add Todo</button>
   </Container>
 `;
 
@@ -146,7 +148,7 @@ class App extends Component {
 ## 安装
 
 ```sh
-npm install babel-plugin-nornj-in-jsx  #or yarn add babel-plugin-nornj-in-jsx
+npm install babel-plugin-nornj-in-jsx@next  #or yarn add babel-plugin-nornj-in-jsx@next
 ```
 
 然后配置`.babelrc`:

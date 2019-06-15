@@ -55,7 +55,7 @@ export function isArrayLike(obj) {
 }
 
 //遍历数组或对象
-export function each(obj, func, context, isArr) {
+export function each(obj, func, isArr) {
   if (!obj) {
     return;
   }
@@ -64,12 +64,9 @@ export function each(obj, func, context, isArr) {
     isArr = isArrayLike(obj);
   }
 
-  //设置回调函数上下文
-  context = context ? context : obj;
-
   if (isArr) {
     for (let i = 0, l = obj.length; i < l; i++) {
-      let ret = func.call(context, obj[i], i, l);
+      let ret = func.call(obj, obj[i], i, l);
 
       if (ret === false) {
         break;
@@ -80,7 +77,7 @@ export function each(obj, func, context, isArr) {
       l = keys.length;
     for (let i = 0; i < l; i++) {
       let k = keys[i],
-        ret = func.call(context, obj[k], k, i, l);
+        ret = func.call(obj, obj[k], k, i, l);
 
       if (ret === false) {
         break;
@@ -159,7 +156,7 @@ export function clearQuot(value, clearDouble) {
 }
 
 //Transform to camel-case
-export function toCamelCase(str) {
+export function camelCase(str) {
   if (str.indexOf('-') > -1) {
     str = str.replace(/-\w/g, function (letter) {
       return letter.substr(1).toUpperCase();
@@ -188,6 +185,10 @@ export function capitalize(str) {
   return str[0].toUpperCase() + str.substr(1);
 }
 
+export function lowerFirst(str) {
+  return str[0].toLowerCase() + str.substr(1);
+}
+
 assign(nj, {
   defineProp,
   defineProps,
@@ -203,7 +204,8 @@ assign(nj, {
   throwIf,
   warn,
   obj,
-  toCamelCase,
+  camelCase,
   assign,
-  capitalize
+  capitalize,
+  lowerFirst
 });

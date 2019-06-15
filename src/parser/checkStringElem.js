@@ -41,7 +41,7 @@ export default function compileStringTmpl(tmpl) {
         const last = xml.length - 1,
           lastChar = xml[last],
           lastChar3 = xml.substr(last - 2),
-          isComputed = lastChar === '#',
+          isAccessor = lastChar === '#',
           isSpread = lastChar3 === '...';
 
         if (isInBrace) {
@@ -54,13 +54,13 @@ export default function compileStringTmpl(tmpl) {
             isInBrace = tmplRule.incompleteStart.test(xml);
           }
         }
-        if (isComputed) {
+        if (isAccessor) {
           xml = xml.substr(0, last);
         } else if (isSpread) {
           xml = xml.substr(0, last - 2);
         }
 
-        split = (isComputed ? '#' : (isSpread ? '...' : '')) + SPLIT_FLAG + i;
+        split = (isAccessor ? '#' : (isSpread ? '...' : '')) + SPLIT_FLAG + i;
         if (!isInBrace) {
           split = tmplRule.startRule + split + tmplRule.endRule;
         }
@@ -75,7 +75,7 @@ export default function compileStringTmpl(tmpl) {
       }
 
       fullXml += xml + split;
-    }, false, true);
+    }, true);
 
     //Merge all include tags
     const includeParser = nj.includeParser;
@@ -188,7 +188,7 @@ function _checkStringElem(xml, tmplRule, outputH) {
       if (isEx && !isEx[1] && (tranElem.isPropS(elemName, tmplRule) ||
         tranElem.isStrPropS(elemName, tmplRule) ||
         tranElem.isParamsEx(isEx[3]) ||
-        tranElem.exCompileConfig(isEx[3]).isProp)) {
+        tranElem.exCompileConfig(isEx[3]).isDirective)) {
         parent = current;
         current = _createCurrent(_elemName, parent);
         _setElem(_elem, _elemName, _elemParams, current.elem, null, tmplRule, outputH);
@@ -219,7 +219,7 @@ function _checkStringElem(xml, tmplRule, outputH) {
 
             if (isEx || !inTextContent) {
               const cName = current.elemName;
-              if (cName.indexOf(SPLIT_FLAG) < 0 ? (elemName === '/' + cName) : (elemName.indexOf(SPLIT_FLAG) > -1)) { //如果开始标签包含SPLIT_FLAG，则只要结束标签包含SPLIT_FLAG就认为该标签已关闭
+              if (cName.indexOf(SPLIT_FLAG) < 0 ? (elemName === '/' + cName) : (elemName.indexOf(SPLIT_FLAG) > -1 || elemName === '//')) { //如果开始标签包含SPLIT_FLAG，则只要结束标签包含SPLIT_FLAG就认为该标签已关闭
                 current = current.parent;
               }
             } else {
@@ -291,9 +291,20 @@ function _transformToEx(isStr, elemName, elemParams, tmplRule) {
 
 //Set element node
 function _setElem(elem, elemName, elemParams, elemArr, bySelfClose, tmplRule, outputH) {
-  let ret, paramsEx;
+  let ret, paramsEx,
+    fixedExTagName = tranElem.fixExTagName(elemName, tmplRule);
+  if (fixedExTagName) {
+    elemName = fixedExTagName;
+  }
   if (tranElem.isEx(elemName, tmplRule, true)) {
     ret = elem.substring(1, elem.length - 1);
+    if (fixedExTagName) {
+      ret = tmplRule.extensionRule + tools.lowerFirst(ret);
+    }
+
+    const retS = _getSplitParams(ret, tmplRule, outputH);
+    ret = retS.elem;
+    paramsEx = retS.params;
   } else if (tranElem.isStrPropS(elemName, tmplRule)) {
     ret = _transformToEx(true, elemName, elemParams, tmplRule);
   } else if (tranElem.isPropS(elemName, tmplRule)) {
@@ -323,7 +334,7 @@ const REGEX_EX_ATTR = /([^\s-$.]+)(([$.][^\s-$.]+)*)((-[^\s-$.]+([$.][^\s-$.]+)*
 
 //Extract split parameters
 function _getSplitParams(elem, tmplRule, outputH) {
-  const { extensionRule, startRule, endRule, firstChar, lastChar, spreadProp, exAttrs } = tmplRule;
+  const { extensionRule, startRule, endRule, firstChar, lastChar, spreadProp, directives } = tmplRule;
   let paramsEx;
 
   //Replace the parameter like "{...props}".
@@ -341,7 +352,7 @@ function _getSplitParams(elem, tmplRule, outputH) {
   });
 
   //Replace the parameter like "#show={false}".
-  elem = elem.replace(exAttrs, (all, g1, g2, g3, g4, g5, g6, key, hasColon, hasEx, name, hasEqual, value) => {
+  elem = elem.replace(directives, (all, g1, g2, g3, g4, g5, g6, key, hasColon, hasEx, name, hasEqual, value) => {
     if (hasEx == null) {
       return all;
     }
@@ -375,7 +386,7 @@ function _getSplitParams(elem, tmplRule, outputH) {
       return name;
     });
 
-    const exPreAst = [extensionRule + name + ' _njIsProp'
+    const exPreAst = [extensionRule + name + ' _njIsDirective'
       + (args ? ' arguments="' + firstChar + startRule + '[' + args.join(',') + ']' + endRule + lastChar + '"' : '')
       + (modifiers ? ' modifiers="' + startRule + '[' + modifiers.join(',') + ']' + endRule + '"' : '')
       + (hasEqual ? '' : ' /')];

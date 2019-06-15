@@ -5,12 +5,12 @@ import util from '../testUtil';
 chai.use(spies);
 const expect = chai.expect;
 
-describe('n-show extension attribute', function () {
-  const nShow = require('../fixtures/exAttr/n-show.jsx');
+describe('n-show directive', function () {
+  const nShow = require('../fixtures/directive/n-show.jsx');
 
   it('should render n-show when value is true', function () {
     const rendered = util.render(nShow, { condition: true, show: true });
-    expect(rendered).to.contain('<p name="wrap" class="wrap" id="wrap">');
+    expect(rendered).to.contain('<p id="wrap" name="wrap" class="wrap">');
     expect(rendered).to.contain(' style="display:none">');
     expect(rendered).not.to.contain('<p style="display:none"');
   });
@@ -22,8 +22,8 @@ describe('n-show extension attribute', function () {
   });
 });
 
-describe('n-style extension attribute', function () {
-  const nStyle = require('../fixtures/exAttr/n-style.jsx');
+describe('n-style directive', function () {
+  const nStyle = require('../fixtures/directive/n-style.jsx');
 
   it('should render n-style when value is string', function () {
     const rendered = util.render(nStyle, { condition: true });

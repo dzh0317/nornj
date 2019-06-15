@@ -10,21 +10,23 @@
 
 ```
 
-`NornJ`(pronounced [ˈnɔ:ndʒeɪ]，abbreviated as `nj`) is a template engine that can works with React, JSX enhancement or alternative tools.
+`NornJ`(pronounced [ˌnɔ:nˈdʒeɪ]，abbreviated as `nj`) is a template engine that can works with React, JSX enhancement or alternative tools.
 
 [![NPM Version][npm-image]][npm-url]
 <a href="https://www.npmjs.com/package/nornj"><img src="https://img.shields.io/npm/l/nornj.svg" alt="License"></a>
 <a href="https://travis-ci.org/joe-sky/nornj"><img src="https://travis-ci.org/joe-sky/nornj.svg?branch=master" alt="Travis CI Status"/></a>
 <a href="https://codecov.io/gh/joe-sky/nornj"><img src="https://codecov.io/gh/joe-sky/nornj/branch/master/graph/badge.svg" alt="Codecov" /></a>
 [![NPM Downloads][downloads-image]][npm-url]
-[![](https://img.shields.io/bundlephobia/minzip/nornj@5.0.0-rc.1.svg?style=flat)](https://bundlephobia.com/result?p=nornj@next)
+[![](https://img.shields.io/bundlephobia/minzip/nornj@next.svg?style=flat)](https://bundlephobia.com/result?p=nornj@next)
 
 English | [简体中文](https://github.com/joe-sky/nornj/blob/master/README.zh.md)
 
+> Notice: NornJ latest major version `5.0.0` will release soon, the `0.4.x` will no longer be updated.
+
 ## Documents
 
-* [NornJ Guide(github pages)](https://joe-sky.github.io/nornj-guide)
-* [NornJ Guide(gitbook)](https://joe-sky.gitbooks.io/nornj-guide)
+* [NornJ Guide(v5)](https://joe-sky.gitbooks.io/nornj-guide/zh/)
+* [NornJ Guide(v0.4)](https://joe-sky.github.io/nornj-guide)
 
 ## Introduction
 
@@ -33,7 +35,7 @@ In `React` development, the `JSX` can use almost all the syntax of javascript an
 * Support control statements：
 
 ```js
-<each of={[1, 2, 3]}><i>{item}</i></each>
+<Each of={[1, 2, 3]}><i>{item}</i></Each>
 ```
 
 * Support directives：
@@ -77,14 +79,14 @@ class App extends Component {
           }
         `</style>
         <ul>
-          <each of={todos} item="todo">
-            <if condition={index > 5}>
+          <Each of={todos} item="todo">
+            <If condition={index > 5}>
               <li>{todo * 2}</li>
-              <elseif condition={index > 10}>
+              <Elseif condition={index > 10}>
                 <li>{todo * 3}</li>
-              </elseif>
-            </if>
-          </each>
+              </Elseif>
+            </If>
+          </Each>
         </ul>
         <button n-show={todos.length > 0} onClick={this.addTodo}>Add Todo</button>
       </div>
@@ -98,19 +100,19 @@ For above example, combining with the [Babel plugin provided by NornJ](https://g
 * Use NornJ tagged templates syntaxs(with [styled-components](https://github.com/styled-components/styled-components))：
 
 ```js
-const template = nj`
+const template = html`
   <Container>
     <ul>
-      <#each of={todos}>
-        <#if {@index > 5}>
+      <each of={todos}>
+        <if {@index > 5}>
           <li>{@item * 2}</li>
-          <#elseif {@index > 10}>
+          <elseif {@index > 10}>
             <li>{@item * 3}</li>
-          </#elseif>
-        </#if>
-      </#each>
+          </elseif>
+        </if>
+      </each>
     </ul>
-    <button :#show="todos.length > 0" :onClick="addTodo">Add Todo</button>
+    <button n-show="{todos.length > 0}" :onClick="addTodo">Add Todo</button>
   </Container>
 `;
 
@@ -146,7 +148,7 @@ In the above example, a template function was created using `tagged templates AP
 ## Install
 
 ```sh
-npm install babel-plugin-nornj-in-jsx  #or yarn add babel-plugin-nornj-in-jsx
+npm install babel-plugin-nornj-in-jsx@next  #or yarn add babel-plugin-nornj-in-jsx@next
 ```
 
 Next, add `nornj-in-jsx` to plugins in your babel configuration:

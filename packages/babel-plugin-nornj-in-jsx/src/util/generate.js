@@ -7,43 +7,45 @@ function buildAttrs(types, tagName, attrs, quasis, expressions, lastAttrStr, new
   const exTagConfig = nj.extensionConfig[tagName];
   const newContext = exTagConfig && exTagConfig.newContext;
   const isCtxObject = nj.isObject(newContext);
-  const getDatasFromProp = newContext.getDatasFromProp;
-  let datasFromPropExcept = getDatasFromProp && getDatasFromProp.except;
+  const getDataFromProps = newContext && newContext.getDataFromProps;
+  let dataFromPropsExcept = getDataFromProps && getDataFromProps.except;
   if (isCtxObject) {
     Object.keys(newContext).forEach(k => {
-      if (k !== 'getDatasFromProp') {
+      if (k !== 'getDataFromProps') {
         newContextData[k] = newContext[k];
       }
     });
 
-    if (getDatasFromProp && !newContextData.datas) {
-      newContextData.datas = {};
+    if (getDataFromProps && !newContextData.data) {
+      newContextData.data = {};
     }
   }
 
   if (attrNames.length) {
     attrNames.forEach((attrName, i) => {
       const attr = attrs[attrName];
+      let attrStr = lastAttrStr + (i == 0 ? '<n-' + tagName : '');
 
       if (attr.type != 'JSXSpreadAttribute') {
-        let attrStr = lastAttrStr + (i == 0 ? '<#' + tagName : '') + ' ' + attrName + '=';
-        let isGetDatasFromProp = false;
-        if (getDatasFromProp) {
-          isGetDatasFromProp = !datasFromPropExcept
+        attrStr = attrStr + ' ' + attrName + '=';
+        let isGetDataFromProps = false;
+        if (getDataFromProps) {
+          isGetDataFromProps = !dataFromPropsExcept
             ? true
-            : datasFromPropExcept.indexOf(attrName) < 0;
+            : dataFromPropsExcept.indexOf(attrName) < 0;
         }
 
-        if (isCtxObject && isGetDatasFromProp) {
-          newContextData.datas[attrName] = [attrName, attrName];
+        if (isCtxObject && isGetDataFromProps) {
+          newContextData.data[attrName] = [attrName, attrName];
         }
-        if (isCtxObject && !isGetDatasFromProp && newContext[attrName] != null) {
+        if (isCtxObject && !isGetDataFromProps && newContext[attrName] != null) {
           newContextData[attrName] = attr.value.value;
-          lastAttrStr += (i == 0 ? '<#' + tagName : '');
+          lastAttrStr += (i == 0 ? '<n-' + tagName : '');
         }
-        else if (isCtxObject && !isGetDatasFromProp && newContext.datas && newContext.datas[attrName] != null) {
-          newContextData.datas[attrName] = [newContextData.datas[attrName][0], attr.value.value];
-          lastAttrStr += (i == 0 ? '<#' + tagName : '');
+        else if (isCtxObject && !isGetDataFromProps && newContext.data && newContext.data[attrName] != null) {
+          const attrDatas = newContextData.data[attrName];
+          newContextData.data[attrName] = [Array.isArray(attrDatas) ? attrDatas[0] : attrDatas, attr.value.value];
+          lastAttrStr += (i == 0 ? '<n-' + tagName : '');
         }
         else if (!attr.value) {
           lastAttrStr = attrStr.substr(0, attrStr.length - 1);
@@ -97,7 +99,7 @@ function buildAttrs(types, tagName, attrs, quasis, expressions, lastAttrStr, new
       }
       else {
         quasis.push(types.TemplateElement({
-          cooked: ' '
+          cooked: attrStr + ' '
         }));
         attr.argument.isSpread = true;
         expressions.push(attr.argument);
@@ -106,7 +108,7 @@ function buildAttrs(types, tagName, attrs, quasis, expressions, lastAttrStr, new
     });
   }
   else {
-    lastAttrStr += '<#' + tagName;
+    lastAttrStr += '<n-' + tagName;
   }
 
   return lastAttrStr;
@@ -133,23 +135,31 @@ function getElName(types, expr) {
   }
 }
 
-function getExAttrExpression(types, expr) {
+function getDirectiveExpression(types, expr) {
   if (types.isBinaryExpression(expr)) {
-    return [...getExAttrExpression(types, expr.left), ...getExAttrExpression(types, expr.right)];
+    return [...getDirectiveExpression(types, expr.left), ...getDirectiveExpression(types, expr.right)];
   }
   else {
     return [expr.loc ? expr : expr.value];
   }
 }
 
-const CTX_DATAS = 'datas';
+function getDirectiveMemberExpression(types, expr) {
+  if (types.isMemberExpression(expr)) {
+    return [...getDirectiveMemberExpression(types, expr.object), ...getDirectiveMemberExpression(types, expr.property)];
+  }
+  else {
+    return [expr];
+  }
+}
+
 const CTX_DATA = 'data';
 const CTX_GET_DATA = 'getData';
 
 function createRenderTmpl(babel, quasis, expressions, opts, path, taggedName) {
   const types = babel.types;
   const isTmplFnS = taggedName === 'njs';
-  const isTmplFn = taggedName === 'nj' || isTmplFnS;
+  const isTmplFn = taggedName === 'nj' || taggedName === 'html' || isTmplFnS;
 
   let tmplStr = '';
   let paramCount = 0;
@@ -182,11 +192,11 @@ function createRenderTmpl(babel, quasis, expressions, opts, path, taggedName) {
   const tmplObj = _buildTmplFns(nj.precompile(
     tmplStr,
     !isTmplFnS ? (opts.outputH != null ? opts.outputH : true) : false,
-    nj.createTmplRule(opts.delimiters != null ? opts.delimiters : {
+    nj.createTmplRule(opts.delimiters != null ? opts.delimiters : (!isTmplFnS ? {
       start: '{',
       end: '}',
       comment: ''
-    })),
+    } : {}))),
     tmplKey);
 
   const tmplParams = [];
@@ -202,7 +212,7 @@ function createRenderTmpl(babel, quasis, expressions, opts, path, taggedName) {
       let newDatas;
       if (newCtxDatakeys.length) {
         const properties = newCtxDatakeys.map(k => {
-          if (k !== CTX_DATAS) {
+          if (k !== CTX_DATA) {
             return types.objectProperty(types.Identifier(k), types.Identifier(e.newContextData[k]));
           }
           else {
@@ -221,9 +231,19 @@ function createRenderTmpl(babel, quasis, expressions, opts, path, taggedName) {
       if (newDatas) {
         const declarations = [];
         Object.keys(newDatas).forEach(k => {
+          let varName,
+            dataName;
+          if (Array.isArray(newDatas[k])) {
+            varName = newDatas[k][1];
+            dataName = newDatas[k][0];
+          }
+          else {
+            dataName = varName = newDatas[k];
+          }
+
           declarations.push(types.variableDeclarator(
-            types.Identifier(newDatas[k][1]),
-            types.callExpression(types.Identifier(CTX_GET_DATA), [types.stringLiteral(newDatas[k][0]), types.Identifier(CTX_DATA)])
+            types.Identifier(varName),
+            types.callExpression(types.Identifier(CTX_GET_DATA), [types.stringLiteral(dataName), types.Identifier(CTX_DATA)])
           ));
         });
 
@@ -251,11 +271,7 @@ function createRenderTmpl(babel, quasis, expressions, opts, path, taggedName) {
     renderFnParams.push(types.objectExpression(tmplParams));
   }
   if (!isTmplFn) {
-    renderFnParams.push(path.scope.hasBinding('props') ? types.identifier('props') :
-      types.conditionalExpression(types.thisExpression(), types.memberExpression(
-        types.thisExpression(),
-        types.identifier('props')
-      ), types.nullLiteral()), types.thisExpression());
+    renderFnParams.push(types.thisExpression());
   }
 
   return types.CallExpression(
@@ -282,6 +298,7 @@ function _buildTmplFns(fns, tmplKey) {
 module.exports = {
   buildAttrs,
   getElName,
-  getExAttrExpression,
+  getDirectiveExpression,
+  getDirectiveMemberExpression,
   createRenderTmpl
 };

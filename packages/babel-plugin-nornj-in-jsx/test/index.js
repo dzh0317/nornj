@@ -10,15 +10,31 @@ require('@babel/register')({
   plugins: [
     styledJsx,
     [njInJsx, {
-      delimiters: {
-        start: '{',
-        end: '}',
-        comment: ''
-      },
+      // delimiters: {
+      //   start: '{',
+      //   end: '}',
+      //   comment: ''
+      // },
       filterConfig: {
         cut: {
           onlyGlobal: true,
           hasOptions: true
+        }
+      },
+      extensionConfig: {
+        simpleFor: {
+          newContext: {
+            data: {
+              item: 'item',
+              index: 'index',
+              first: 'firstItem'
+            }
+          }
+        },
+        while: true,
+        set: true,
+        switch: {
+          needPrefix: 'onlyUpperCase'
         }
       }
     }],
@@ -31,5 +47,6 @@ require('./specs/if.spec');
 require('./specs/each.spec');
 require('./specs/switch.spec');
 require('./specs/with.spec');
-require('./specs/exAttr.spec');
+require('./specs/directive.spec');
 require('./specs/taggedTemplate.spec');
+require('./specs/customTag.spec');

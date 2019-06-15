@@ -50,7 +50,7 @@ function _compiledProp(prop, innerBrackets, innerQuotes, source) {
             if (p !== '') {
               params[params.length] = _compiledProp(p.trim(), innerBrackets, innerQuotes, source);
             }
-          }, false, true);
+          }, true);
 
           filterObj.params = params;
         }
@@ -58,7 +58,7 @@ function _compiledProp(prop, innerBrackets, innerQuotes, source) {
         filterObj.name = filterName;
         filters.push(filterObj);
       }
-    }, false, true);
+    }, true);
 
     ret.filters = filters;
   }
@@ -80,8 +80,8 @@ function _compiledProp(prop, innerBrackets, innerQuotes, source) {
   //Extract the js property
   if (prop !== '') {
     const matchProp = REGEX_JS_PROP.exec(prop);
-    const hasComputed = matchProp[6] === '#';
-    ret.name = hasComputed ? matchProp[7] : matchProp[0];
+    const hasAccessor = matchProp[6] === '#';
+    ret.name = hasAccessor ? matchProp[7] : matchProp[0];
 
     // if (matchProp[0] !== prop) {
     //   tools.error(_syntaxError(SPACE_ERROR, _replaceStr(propO, innerQuotes), source));
@@ -89,8 +89,8 @@ function _compiledProp(prop, innerBrackets, innerQuotes, source) {
     if (!matchProp[5]) { //Sign the parameter is a basic type value.
       ret.isBasicType = true;
     }
-    if (hasComputed) {
-      ret.isComputed = true;
+    if (hasAccessor) {
+      ret.isAccessor = true;
     }
     ret.name = ret.name.replace(REGEX_REPLACE_SET, () => {
       ret.hasSet = true;
@@ -115,11 +115,24 @@ const LT_GT_LOOKUP = {
   '_njGt_': '>'
 };
 const REGEX_QUOTE = /"[^"]*"|'[^']*'/g;
+const REGEX_OPERATORS_ESCAPE = /\*|\||\/|\.|\?|\+/g;
 const SP_FILTER_LOOKUP = {
   '||': 'or',
   '..<': 'rLt'
 };
-const REGEX_SP_FILTER = /[\s]+((\|\||\.\.<)[\s]*)/g;
+let REGEX_SP_FILTER;
+
+function createFilterAlias(name, alias) {
+  if (name && alias) {
+    SP_FILTER_LOOKUP[name] = alias;
+  }
+
+  REGEX_SP_FILTER = new RegExp('[\\s]+((' + Object.keys(SP_FILTER_LOOKUP).map(o => {
+    return o.replace(REGEX_OPERATORS_ESCAPE, match => '\\' + match);
+  }).join('|') + ')[\\s]*)', 'g');
+}
+createFilterAlias();
+
 const FN_FILTER_LOOKUP = {
   ')': ')_(',
   ']': ']_('
@@ -141,6 +154,53 @@ const REGEX_BRACKET_FILTER = /^[\s]*([(]+)|([(,])[\s]*([(]+)/g;
 const NOT_OPERATORS = ['../'];
 const REGEX_NEGATIVE = /-[0-9]/;
 const BEGIN_CHARS = ['', '(', '[', ','];
+const OPERATORS = [
+  '+=',
+  '+',
+  '-[0-9]',
+  '-',
+  '**',
+  '*',
+  '%%',
+  '%',
+  '===',
+  '!==',
+  '==',
+  '!=',
+  '<=>',
+  '<=',
+  '>=',
+  '=',
+  '..<',
+  '<',
+  '>',
+  '&&',
+  '||',
+  '?:',
+  '?',
+  ':',
+  '../',
+  '..',
+  '/'
+];
+
+let REGEX_OPERATORS;
+function createRegexOperators(operator) {
+  if (operator) {
+    let insertIndex = 0;
+    OPERATORS.forEach((o, i) => {
+      if (o.indexOf(operator) >= 0) {
+        insertIndex = i + 1;
+      }
+    });
+    OPERATORS.splice(insertIndex, 0, operator);
+  }
+
+  REGEX_OPERATORS = new RegExp(OPERATORS.map(o => {
+    return o.replace(REGEX_OPERATORS_ESCAPE, match => '\\' + match);
+  }).join('|'), 'g');
+}
+createRegexOperators();
 
 function _getProp(matchArr, innerQuotes, i, addSet) {
   let prop = matchArr[2].trim(),
@@ -159,20 +219,21 @@ function _getProp(matchArr, innerQuotes, i, addSet) {
     .replace(REGEX_QUOTE, match => {
       innerQuotes.push(match);
       return '_njQs' + (innerQuotes.length - 1) + '_';
-    });
-  prop = prop.replace(nj.REGEX_OPERATORS, (match, index) => {
-    if (REGEX_NEGATIVE.test(match)) {
-      if (index > 0 && BEGIN_CHARS.indexOf(prop[index - 1].trim()) < 0) {  //Example: 123-456
-        return match.split('-').join(' - ');
+    })
+    .replace(REGEX_OPERATORS, (match, index) => {
+      if (REGEX_NEGATIVE.test(match)) {
+        if (index > 0 && BEGIN_CHARS.indexOf(prop[index - 1].trim()) < 0) {  //Example: 123-456
+          return match.split('-').join(' - ');
+        }
+        else {  //Example: -123+456
+          return match;
+        }
       }
-      else {  //Example: -123+456
-        return match;
+      else {
+        return NOT_OPERATORS.indexOf(match) < 0 ? ` ${match} ` : match;
       }
-    }
-    else {
-      return NOT_OPERATORS.indexOf(match) < 0 ? ` ${match} ` : match;
-    }
-  })
+    })
+    .replace(REGEX_SP_FILTER, (all, g1, match) => ' ' + SP_FILTER_LOOKUP[match] + ' ')
     .replace(REGEX_PROP_FILTER, (all, g1) => {
       const startWithHash = g1[0] === '#';
       if (startWithHash) {
@@ -188,7 +249,6 @@ function _getProp(matchArr, innerQuotes, i, addSet) {
     .replace(REGEX_SET_FILTER, (all, g1) => (g1 ? g1 : '') + '_njSet_')
     .replace(REGEX_BRACKET_FILTER, (all, g1, g2, g3) => (g2 ? g2 : '') + (g2 ? g3 : g1).replace(/[(]/g, 'bracket('))
     //.replace(REGEX_OBJKEY_FILTER, (all, g1, g2) => g1 + ' \'' + g2 + '\' : ')
-    .replace(REGEX_SP_FILTER, (all, g1, match) => ' ' + SP_FILTER_LOOKUP[match] + ' ')
     .replace(REGEX_SPACE_S_FILTER, (all, match) => match)
     .replace(REGEX_FN_FILTER, (all, match, g1) => !g1 ? FN_FILTER_LOOKUP[match] : '.(\'' + g1 + '\')_(');
 
@@ -285,7 +345,7 @@ export function compiledParam(value, tmplRule, hasColon, onlyKey, addSet) {
       //To determine whether it is necessary to escape
       retP.escape = param[1] !== tmplRule.firstChar + tmplRule.startRule;
       props.push(retP);
-    }, false, true);
+    }, true);
   }
 
   ret.props = props;
@@ -295,3 +355,8 @@ export function compiledParam(value, tmplRule, hasColon, onlyKey, addSet) {
 
   return ret;
 }
+
+tools.assign(nj, {
+  createFilterAlias,
+  createRegexOperators
+});

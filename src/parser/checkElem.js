@@ -16,7 +16,7 @@ const NO_SPLIT_NEWLINE = [
 function _plainTextNode(obj, parent, parentContent, noSplitNewline, tmplRule) {
   const node = {};
   node.type = 'nj_plaintext';
-  node.content = [tranParam.compiledParam(obj, tmplRule, null, null, parent.ex != null ? tranElem.exCompileConfig(parent.ex).addSet : null)];
+  node.content = [tranParam.compiledParam(obj, tmplRule, null, null, parent.ex != null ? tranElem.exCompileConfig(parent.ex).isBindable : null)];
   node.allowNewline = noSplitNewline;
   parent[parentContent].push(node);
 }
@@ -62,10 +62,9 @@ export default function checkElem(obj, parent, tmplRule, hasExProps, noSplitNewl
     //判断是否为xml标签
     let openTagName,
       hasCloseTag = false,
-      isTmpl,
       isParamsEx,
-      isProp,
-      isSub,
+      isDirective,
+      isSubTag,
       needAddToProps;
 
     ex = tranElem.isEx(first, tmplRule);
@@ -87,13 +86,12 @@ export default function checkElem(obj, parent, tmplRule, hasExProps, noSplitNewl
     } else { //为扩展标签,也可视为一个元素节点
       const exName = ex[0];
       exParams = ex[1];
-      isTmpl = tranElem.isTmpl(exName);
       isParamsEx = tranElem.isParamsEx(exName);
       if (!isParamsEx) {
         let exConfig = tranElem.exCompileConfig(exName);
-        isProp = exConfig.isProp;
-        isSub = exConfig.isSub;
-        needAddToProps = isProp ? !hasExProps : isSub;
+        isDirective = exConfig.isDirective;
+        isSubTag = exConfig.isSubTag;
+        needAddToProps = isDirective ? !hasExProps : isSubTag;
 
         if (exConfig.useString) {
           node.useString = exConfig.useString;
@@ -102,7 +100,7 @@ export default function checkElem(obj, parent, tmplRule, hasExProps, noSplitNewl
 
       node.type = 'nj_ex';
       node.ex = exName;
-      if (exParams != null && !isTmpl && !isParamsEx) {
+      if (exParams != null && !isParamsEx) {
         if (!node.args) {
           node.args = [];
         }
@@ -113,8 +111,8 @@ export default function checkElem(obj, parent, tmplRule, hasExProps, noSplitNewl
             node.useString = !(value === 'false');
             return;
           }
-          else if (key === '_njIsProp') {
-            node.isDirective = node.isProp = isProp = true;
+          else if (key === '_njIsDirective') {
+            node.isDirective = isDirective = true;
             needAddToProps = !hasExProps;
             return;
           }
@@ -128,7 +126,7 @@ export default function checkElem(obj, parent, tmplRule, hasExProps, noSplitNewl
             }
             node.params[key] = paramV;
           }
-        }, false, true);
+        }, true);
       }
 
       isElemNode = true;
@@ -158,7 +156,7 @@ export default function checkElem(obj, parent, tmplRule, hasExProps, noSplitNewl
 
           tools.each(tagParams, param => { //The parameter like "{prop}" needs to be replaced.
             node.params[param.onlyBrace ? param.onlyBrace.replace(/\.\.\//g, '') : param.key] = tranParam.compiledParam(param.value, tmplRule, param.hasColon, param.onlyKey);
-          }, false, true);
+          }, true);
         }
 
         //Verify if self closing tag again, because the tag may be similar to "<br></br>".
@@ -171,12 +169,7 @@ export default function checkElem(obj, parent, tmplRule, hasExProps, noSplitNewl
           node.allowNewline = 'nlElem';
         }
       } else {
-        if (isTmpl) { //模板元素
-          pushContent = false;
-
-          //将模板添加到父节点的params中
-          tranElem.addTmpl(node, parent, exParams ? exParams[0].value : null);
-        } else if (isParamsEx || needAddToProps) {
+        if (isParamsEx || needAddToProps) {
           pushContent = false;
         }
 
@@ -195,12 +188,12 @@ export default function checkElem(obj, parent, tmplRule, hasExProps, noSplitNewl
       const end = len - (hasCloseTag ? 1 : 0),
         content = obj.slice(1, end);
       if (content && content.length) {
-        _checkContentElem(content, node, tmplRule, isParamsEx || (hasExProps && !isProp), noSplitNewline, tmplRule);
+        _checkContentElem(content, node, tmplRule, isParamsEx || (hasExProps && !isDirective), noSplitNewline, tmplRule);
       }
 
       //If this is params block, set on the "paramsEx" property of the parent node.
       if (isParamsEx || needAddToProps) {
-        tranElem.addParamsEx(node, parent, isProp, isSub);
+        tranElem.addParamsEx(node, parent, isDirective, isSubTag);
       }
     } else { //如果不是元素节点,则为节点集合
       _checkContentElem(obj, parent, tmplRule, hasExProps, noSplitNewline);
@@ -218,5 +211,5 @@ function _checkContentElem(obj, parent, tmplRule, hasExProps, noSplitNewline) {
 
   tools.each(obj, (item, i, l) => {
     checkElem(item, parent, tmplRule, hasExProps, noSplitNewline, i == l - 1);
-  }, false, true);
+  }, true);
 }

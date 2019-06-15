@@ -1,5 +1,5 @@
-﻿import { render } from '../../src/compiler/compile';
-import '../../src/utils/createTmplRule';
+﻿import { render, precompile } from '../../src/compiler/compile';
+import createTmplRule from '../../src/utils/createTmplRule';
 import { registerExtension } from '../../src/helpers/extension';
 
 describe('Register extension tag', () => {
@@ -11,64 +11,67 @@ describe('Register extension tag', () => {
       wrap2: {
         extension: options => {
           const { props } = options;
-          options.subExProps.subProps = props && props.subProps ? props.subProps : 'test';
+          //console.log(props);
+          options.tagProps.subProps = props && props.subProps ? props.subProps : 'test';
         },
         options: {
-          isSub: true,
-          subExProps: true
+          isSubTag: true
         }
       },
       wrap3: {
         extension: options => {
-          options.subExProps.subProps = 'test3';
+          options.tagProps.subProps = 'test3';
         },
         options: {
-          isSub: true,
-          subExProps: true
+          isSubTag: true
         }
       },
       wrap4: {
         extension: options => {
-          options.exProps.props = 'test4';
+          options.tagProps.props = 'test4';
         },
         options: {
-          isProp: true,
-          exProps: true
+          isSubTag: true
         }
       },
-      wrap5: options => {
-        return options.children();
+      wrap5: {
+        extension: options => {
+          const { props } = options;
+          options.tagProps.props = props.props;
+        },
+        options: {
+          isSubTag: true
+        }
       },
     });
   });
 
   it('2 layers', () => {
     expect(render(`
-      <#wrap1>
-        <#wrap2 />
-      </#wrap1>
+      <wrap1>
+        <wrap2 />
+      </wrap1>
     `)).toBe('subProps:test');
   });
 
   it('3 layers', () => {
     expect(render(`
-      <#wrap1>
-        <#wrap2>
-          <#wrap3 />
-        </#wrap2>
-      </#wrap1>
+      <wrap1>
+        <wrap2>
+          <p-title>1</p-title>
+          <wrap3 />
+        </wrap2>
+      </wrap1>
     `)).toBe('subProps:test3');
   });
 
-  it('3 layers and has isProp', () => {
+  it('3 layers', () => {
     expect(render(`
-      <#wrap1>
-        <#props>
-          <#wrap5>
-            <#wrap4 />
-          </#wrap5>
-        </#props>
-      </#wrap1>
+      <wrap1>
+        <wrap5>
+          <wrap4 />
+        </wrap5>
+      </wrap1>
     `)).toBe('subProps:test4');
   });
 });

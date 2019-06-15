@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [v5.0.0-rc.14] 2019.06.14
+
+* 🌟 The `switch` tag should be prefixed by default when it begin in lowercase.
+
+## [v5.0.0-rc.10] 2019.05.20
+
+* 🌟 Support spread props in extension tags.
+
+## [v5.0.0-rc.8] 2019.05.08
+
+* 🌟 Support `key` variable for `each` tag in jsx.
+
+## [v5.0.0-rc.7] 2019.05.05
+
+* 🌟 Changed the default template rule of tags from `<#extag>` to `<n-extag>`. If you need to adapt version 0.4, you can use `nj.config` to modify the rules.
+
+## [v5.0.0-rc.5] 2019.04.14
+
+* 🌟 Support nj`<Extag></Extag>` auto transform to nj`<n-extag></n-extag>`.
+
 ## [v5.0.0-rc.1] 2019.04.02
 
 * 🌟 扩展函数中的`options.result`改为`options.children`或`options.value`。

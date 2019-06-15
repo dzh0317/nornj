@@ -118,8 +118,9 @@ const addKeyAttribute = exports.addKeyAttribute = function (babelTypes, node, ke
 
 function isReactCreateElement(types, expr) {
   return types.isCallExpression(expr)
-    && expr.callee.object.name === 'React'
-    && expr.callee.property.name === 'createElement';
+    && expr.callee
+    && (expr.callee.object && expr.callee.object.name === 'React')
+    && (expr.callee.property && expr.callee.property.name === 'createElement');
 }
 
 function addKeyAttributeByReactCreateElement(types, node, keyValue) {
@@ -131,17 +132,20 @@ function addKeyAttributeByReactCreateElement(types, node, keyValue) {
   }
   else {
     let keyFound = false;
+    const properties = node.arguments[1].properties;
 
-    node.arguments[1].properties.forEach(function (attrib) {
-      if (attrib.key.name === 'key') {
-        keyFound = true;
-        return false;
+    if (properties) {
+      properties.forEach(function (attrib) {
+        if (attrib.key.name === 'key') {
+          keyFound = true;
+          return false;
+        }
+      });
+
+      if (!keyFound) {
+        properties.push(types.objectProperty(types.identifier('key'),
+          types.stringLiteral(keyValue + '')));
       }
-    });
-
-    if (!keyFound) {
-      node.arguments[1].properties.push(types.objectProperty(types.identifier('key'),
-        types.stringLiteral(keyValue + '')));
     }
   }
 };
@@ -184,28 +188,28 @@ exports.getSanitizedExpressionForContent = function (babelTypes, blocks, keyPref
   return babelTypes.arrayExpression(blocks);
 };
 
-exports.hasExAttr = function (node) {
+exports.hasDirective = function (node) {
   return node.openingElement && node.openingElement.attributes.reduce(function (result, attr) {
-    if (attr.name && isExAttr(attr.name.name)) {
+    if (attr.name && isDirective(attr.name.name)) {
       result.push(attr.name.name);
     }
     return result;
   }, []);
 };
 
-function isExAttr(name) {
+function isDirective(name) {
   return name.indexOf('n-') === 0;
 }
-exports.isExAttr = isExAttr;
+exports.isDirective = isDirective;
 
-exports.transformExAttr = function (attrName) {
+exports.transformDirective = function (attrName) {
   const ret = attrName.substr(2);
-  return (ret === 'style' ? '' : '#') + ret;
+  return (ret === 'style' ? '' : 'n-') + ret;
 };
 
 exports.REGEX_CAPITALIZE = /^[A-Z][\s\S]*$/;
 
-exports.REGEX_EX_ATTR = /([^\s-_.]+)((-[^\s-_.]+)*)(([_.][^\s-_.]+)*)/;
+exports.REGEX_EX_ATTR = /([^\s-$.]+)((-[^\s-$.]+)*)(([$.][^\s-$.]+)*)/;
 
 exports.addImportNj = function (state) {
   const globalNj = state.addImport('nornj', 'default', 'nj');
@@ -220,30 +224,29 @@ function hasExPrefix(name) {
 exports.hasExPrefix = hasExPrefix;
 
 const REGEX_LOWER_CASE = /^[a-z]/;
+const REGEX_UPPER_CASE = /^[A-Z]/;
 
 exports.isExTag = function (nodeName) {
   let exPrefix = hasExPrefix(nodeName);
-  let isSub;
+  let isSubTag;
   let needPrefix;
   if (exPrefix) {
     nodeName = nodeName.substr(2);
   }
-  const exConfig = nj.extensionConfig[utils.lowerFirst(nodeName)];
+  const exConfig = nj.extensionConfig[nj.lowerFirst(nodeName)];
   if (exConfig) {
-    if (exConfig.onlyTemplate) {
-      return false;
-    }
-
-    isSub = exConfig.isSub;
+    isSubTag = exConfig.isSubTag;
     needPrefix = exConfig.needPrefix;
   }
 
   let isExTag;
   if (exPrefix) {
-    isExTag = !isSub;
+    isExTag = !isSubTag;
   }
   else {
-    isExTag = exConfig && !isSub && (!needPrefix || (needPrefix == 'onlyUpperCase' && REGEX_LOWER_CASE.test(nodeName)));
+    isExTag = exConfig && !isSubTag && (!needPrefix
+      || (needPrefix == 'onlyUpperCase' && REGEX_LOWER_CASE.test(nodeName))
+      || (needPrefix == 'onlyLowerCase' && REGEX_UPPER_CASE.test(nodeName)));
   }
 
   return isExTag;
@@ -260,21 +263,19 @@ exports.isSubExTag = function (node) {
   }
 
   let exPrefix = hasExPrefix(nodeName);
-  let isSub;
+  let isSubTag;
   let needPrefix;
   if (exPrefix) {
     nodeName = nodeName.substr(2);
   }
 
-  const exConfig = nj.extensionConfig[utils.lowerFirst(nodeName)];
+  const exConfig = nj.extensionConfig[nj.lowerFirst(nodeName)];
   if (exConfig) {
-    if (exConfig.onlyTemplate) {
-      return false;
-    }
-
-    isSub = exConfig.isSub;
+    isSubTag = exConfig.isSubTag;
     needPrefix = exConfig.needPrefix;
   }
 
-  return exPrefix ? isSub : (isSub && (!needPrefix || (needPrefix == 'onlyUpperCase' && REGEX_LOWER_CASE.test(nodeName))));
+  return exPrefix ? isSubTag : (isSubTag && (!needPrefix
+    || (needPrefix == 'onlyUpperCase' && REGEX_LOWER_CASE.test(nodeName))
+    || (needPrefix == 'onlyLowerCase' && REGEX_UPPER_CASE.test(nodeName))));
 };

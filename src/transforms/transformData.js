@@ -1,6 +1,5 @@
 ﻿import nj from '../core';
 import * as tools from '../utils/tools';
-const { errorTitle } = nj;
 const REGEX_NUM = /^(-?([0-9]+[\.]?[0-9]+)|[0-9])$/;
 
 //提取style内参数
@@ -28,7 +27,7 @@ export function styleProps(obj) {
     }
 
     //将连字符转为驼峰命名
-    key = tools.toCamelCase(key);
+    key = tools.camelCase(key);
 
     ret[key] = REGEX_NUM.test(value) ? Number(value) : value;
   }
@@ -37,8 +36,8 @@ export function styleProps(obj) {
 }
 
 //Get value from multiple datas
-export function getData(prop, data, hasCtx) {
-  let ret, obj;
+export function getData(prop, data, hasSource) {
+  let value, obj;
   if (!data) {
     data = this.data;
   }
@@ -46,55 +45,43 @@ export function getData(prop, data, hasCtx) {
   for (let i = 0, l = data.length; i < l; i++) {
     obj = data[i];
     if (obj) {
-      ret = obj[prop];
-      if (ret !== undefined) {
-        if (hasCtx) {
+      value = obj[prop];
+      if (value !== undefined) {
+        if (hasSource) {
           return {
-            _njCtx: obj,
-            val: ret,
-            prop
+            source: obj,
+            value,
+            prop,
+            _njSrc: true
           };
         }
 
-        return ret;
+        return value;
       }
     }
   }
 }
 
-function _getLevel(level, p2) {
-  if (level != null && p2.level != null) {
-    level += p2.level;
-  }
-  return level;
-}
-
-export function getComputedData(fn, p2, level) {
+export function getAccessorData(fn, context) {
   if (fn == null) {
     return fn;
   }
 
-  if (fn.val._njTmpl) { //模板函数
-    return fn.val.call({
-      _njData: p2.data,
-      _njParent: p2.parent,
-      _njIndex: p2.index,
-      _njLevel: _getLevel(level, p2),
-      _njIcp: p2.icp
-    });
+  if (fn._njTmpl) { //模板函数
+    return fn.call(context);
   } else { //普通函数
-    return fn.val.call(p2.data[p2.data.length - 1], p2);
+    return fn.call(context.$this, context);
   }
 }
 
-export function getElement(name, p1, nameO, p2, subName) {
+export function getElement(name, global, nameO, context, subName) {
   let element;
-  if (!p2.icp) {
-    element = p1.cp[name];
+  if (!context.icp) {
+    element = global.cp[name];
   } else {
-    element = getData(nameO, p2.icp);
+    element = getData(nameO, context.icp);
     if (!element) {
-      element = p1.cp[name];
+      element = global.cp[name];
     }
   }
 
@@ -105,8 +92,8 @@ export function getElement(name, p1, nameO, p2, subName) {
   return element ? element : nameO;
 }
 
-export function getElementRefer(refer, name, p1, nameO, p2) {
-  return refer != null ? (tools.isString(refer) ? getElement(refer.toLowerCase(), p1, refer, p2) : refer) : getElement(name, p1, nameO, p2);
+export function getElementRefer(refer, name, global, nameO, context) {
+  return refer != null ? (tools.isString(refer) ? getElement(refer.toLowerCase(), global, refer, context) : refer) : getElement(name, global, nameO, context);
 }
 
 export function getElementName(refer, name) {
@@ -123,25 +110,17 @@ export function addArgs(props, dataRefer) {
 }
 
 //Rebuild local variables in the new context
-export function newContext(p2, p3) {
-  if (!p3) {
-    return p2;
+export function newContext(context, params) {
+  if (!params) {
+    return context;
   }
 
-  return {
-    data: p3.data ? tools.arrayPush(p3.data, p2.data) : p2.data,
-    parent: p3.fallback ? p2 : p2.parent,
-    root: p2.root || p2,
-    index: 'index' in p3 ? p3.index : p2.index,
-    item: 'item' in p3 ? p3.item : p2.item,
-    level: p2.level,
-    getData,
-    get ctxInstance() {
-      return this.data[this.data.length - 1];
-    },
-    d: getData,
-    icp: p2.icp
-  };
+  return tools.assign({}, context, {
+    data: params.data ? tools.arrayPush(params.data, context.data) : context.data,
+    parent: params.newParent ? context : context.parent,
+    index: params.index != null ? params.index : context.index,
+    item: params.item != null ? params.item : context.item
+  });
 }
 
 //修正属性名
@@ -171,13 +150,13 @@ export function assignStrProps(...params) {
 }
 
 //创建扩展标签子节点函数
-export function exRet(p1, p2, fn, p4, p5) {
+export function exRet(global, context, fn) {
   return function (param) {
-    return fn(p1, p2, param, p4, p5);
+    return fn(global, context, param);
   };
 }
 
-function _getLocalComponents(localConfigs, initCtx) {
+function _getLocalComponents(localConfigs) {
   let icp;
   if (localConfigs && localConfigs.components) {
     icp = localConfigs.components;
@@ -185,45 +164,45 @@ function _getLocalComponents(localConfigs, initCtx) {
       icp = [icp];
     }
   }
-  if (initCtx && initCtx._njIcp) {
-    icp = icp ? tools.arrayPush(icp, initCtx._njIcp) : initCtx._njIcp;
-  }
+
   return icp;
 }
 
 //构建可运行的模板函数
 export function tmplWrap(configs, main) {
-  return function (lc, lc2) {
-    const initCtx = this,
+  return function (param1, param2) {
+    const ctx = this,
       data = tools.arraySlice(arguments);
 
-    return main(configs, {
-      data: initCtx && initCtx._njData ? tools.arrayPush(data, initCtx._njData) : data,
-      parent: initCtx ? initCtx._njParent : null,
-      index: initCtx ? initCtx._njIndex : null,
-      item: initCtx ? initCtx._njItem : null,
-      level: initCtx ? initCtx._njLevel : null,
-      getData,
-      d: getData,
-      icp: _getLocalComponents(lc && lc._njParam ? lc2 : lc, initCtx)
-    });
+    return main(configs, ctx && ctx._njCtx ? tools.assign({}, ctx, {
+      data: tools.arrayPush(data, ctx.data)
+    }) : {
+        data,
+        getData,
+        get $this() {
+          return this.data[this.data.length - 1];
+        },
+        d: getData,
+        icp: _getLocalComponents(param1 && param1._njParam ? param2 : param1),
+        _njCtx: true
+      });
   };
 }
 
-function levelSpace(p2) {
-  if (p2.level == null) {
+function levelSpace(context) {
+  if (context.level == null) {
     return '';
   }
 
   let ret = '';
-  for (let i = 0; i < p2.level; i++) {
+  for (let i = 0; i < context.level; i++) {
     ret += '  ';
   }
   return ret;
 }
 
-function firstNewline(p2) {
-  return p2.index == null ? '' : (p2.index == 0 ? '' : '\n');
+function firstNewline(context) {
+  return context.index == null ? '' : (context.index == 0 ? '' : '\n');
 }
 
 function createElementApply(p) {
@@ -231,7 +210,7 @@ function createElementApply(p) {
 }
 
 function callFilter(filter) {
-  return filter._njCtx ? filter.val.bind(filter._njCtx) : filter;
+  return filter.source ? filter.value.bind(filter.source) : filter;
 }
 
 //创建模板函数
@@ -245,7 +224,7 @@ export function template(fns, tmplKey) {
     tf: tools.throwIf,
     wn: tools.warn,
     n: newContext,
-    c: getComputedData,
+    c: getAccessorData,
     sp: styleProps,
     r: exRet,
     e: getElement,
@@ -254,7 +233,6 @@ export function template(fns, tmplKey) {
     aa: addArgs,
     an: tools.assign,
     g: nj.global,
-    l: _getLevel,
     cf: callFilter
   };
 
@@ -270,21 +248,18 @@ export function template(fns, tmplKey) {
   }
 
   tools.each(fns, (v, k) => {
-    if (k.indexOf('main') === 0) { //将每个主函数构建为可运行的模板函数
+    if (k === 'main') { //将每个主函数构建为可运行的模板函数
       configs[k] = tmplWrap(configs, v);
       tools.defineProps(configs[k], {
         _njTmpl: {
           value: true
-        },
-        tmplName: { //设置函数名
-          value: v._njName
         }
       });
       configs['_' + k] = v;
     } else if (k.indexOf('fn') === 0) { //扩展标签函数
       configs[k] = v;
     }
-  }, false, false);
+  }, false);
 
   return configs;
 }

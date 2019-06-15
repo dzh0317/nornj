@@ -1,7 +1,7 @@
 ﻿import nj from '../core';
 import * as tools from '../utils/tools';
-import { getComputedData, styleProps } from '../transforms/transformData';
-const digitsRE = /(\d{3})(?=\d)/g;
+import { getAccessorData, styleProps } from '../transforms/transformData';
+const REGEX_DIGITS_RE = /(\d{3})(?=\d)/g;
 
 //Global filter list
 export const filters = {
@@ -10,17 +10,21 @@ export const filters = {
     if (obj == null) {
       return obj;
     }
-    if (obj._njCtx) {
+    if (obj._njSrc) {
       return {
-        _njCtx: obj.val,
-        val: obj.val[prop],
-        prop
+        source: obj.value,
+        value: obj.value[prop],
+        prop,
+        parent: obj,
+        _njSrc: true
       };
     }
     else if (callFn) {
       return {
-        obj,
-        prop
+        source: obj,
+        value: obj[prop],
+        prop,
+        _njSrc: true
       };
     }
 
@@ -29,24 +33,35 @@ export const filters = {
 
   //Call function
   _: function (fn, args) {
-    return (fn && fn.obj[fn.prop] != null) ? fn.obj[fn.prop].apply(fn.obj, args) : null;
+    if (fn == null) {
+      return fn;
+    }
+    if (fn._njSrc) {
+      const _fn = fn.source[fn.prop];
+      return _fn != null ? _fn.apply(fn.source, args) : _fn;
+    }
+
+    return fn.apply(null, args);
   },
 
-  //Get computed properties
+  //Get accessor properties
   '#': (obj, prop, options) => {
     if (obj == null) {
       return obj;
     }
 
-    return getComputedData({
-      val: obj[prop],
-      _njCtx: obj
-    }, options.context, options.level);
+    return getAccessorData(obj[prop], options.context);
   },
 
-  '**': (val1, val2) => Math.pow(val1, val2),
+  '**': (val1, val2) => {
+    const ret = Math.pow(val1, val2);
+    return isNaN(ret) ? 0 : ret;
+  },
 
-  '%%': (val1, val2) => Math.floor(val1 / val2),
+  '%%': (val1, val2) => {
+    const ret = Math.floor(val1 / val2);
+    return isNaN(ret) ? 0 : ret;
+  },
 
   //Ternary operator
   '?:': (val, val1, val2) => val ? val1 : val2,
@@ -54,10 +69,16 @@ export const filters = {
   '!': val => !val,
 
   //Convert to int 
-  int: (val, radix = 10) => parseInt(val, radix),
+  int: (val, radix = 10) => {
+    const ret = parseInt(val, radix);
+    return isNaN(ret) ? 0 : ret;
+  },
 
   //Convert to float 
-  float: val => parseFloat(val),
+  float: (val, bit) => {
+    const ret = parseFloat(val);
+    return isNaN(ret) ? 0 : (bit != null ? ret.toFixed(bit) : ret);
+  },
 
   //Convert to boolean 
   bool: val => {
@@ -92,6 +113,18 @@ export const filters = {
 
   capitalize: str => tools.capitalize(str),
 
+  lowerFirst: str => tools.lowerFirst(str),
+
+  camelCase: str => tools.camelCase(str),
+
+  isObject: val => tools.isObject(val),
+
+  isNumber: val => tools.isNumber(val),
+
+  isString: val => tools.isString(val),
+
+  isArrayLike: val => tools.isArrayLike(val),
+
   currency(value, decimals, currency) {
     if (!(value - parseFloat(value) >= 0)) return filterConfig.currency.placeholder;
     value = parseFloat(value);
@@ -111,7 +144,7 @@ export const filters = {
       : '';
     const sign = value < 0 ? '-' : '';
     return sign + currency + head +
-      _int.slice(i).replace(digitsRE, '$1,') +
+      _int.slice(i).replace(REGEX_DIGITS_RE, '$1,') +
       _float;
   }
 };
@@ -126,8 +159,10 @@ function _config(params, extra) {
   let ret = {
     onlyGlobal: false,
     hasOptions: false,
+    isOperator: false,
     hasLevel: false,
-    hasTmplCtx: true
+    hasTmplCtx: true,
+    alias: null
   };
 
   if (params) {
@@ -159,47 +194,14 @@ export const filterConfig = {
   rLt: _config(_defaultCfg),
   '<=>': _config(_defaultCfg),
   capitalize: _config(_defaultCfg),
-  currency: _config(_defaultCfg, { symbol: '$',placeholder:'' })
+  lowerFirst: _config(_defaultCfg),
+  camelCase: _config(_defaultCfg),
+  isObject: _config(_defaultCfg),
+  isNumber: _config(_defaultCfg),
+  isString: _config(_defaultCfg),
+  isArrayLike: _config(_defaultCfg),
+  currency: _config(_defaultCfg, { symbol: '$', placeholder: '' })
 };
-
-export const operators = [
-  '+=',
-  '+',
-  '-[0-9]',
-  '-',
-  '**',
-  '*',
-  '%%',
-  '%',
-  '===',
-  '!==',
-  '==',
-  '!=',
-  '<=>',
-  '<=',
-  '>=',
-  '=',
-  '..<',
-  '<',
-  '>',
-  '&&',
-  '||',
-  '?:',
-  '?',
-  ':',
-  '../',
-  '..',
-  '/'
-];
-
-const REGEX_OPERATORS_ESCAPE = /\*|\||\/|\.|\?|\+/g;
-function _createRegexOperators() {
-  return new RegExp(operators.map(o => {
-    return o.replace(REGEX_OPERATORS_ESCAPE, match => '\\' + match);
-  }).join('|'), 'g');
-}
-
-nj.REGEX_OPERATORS = _createRegexOperators();
 
 //Register filter and also can batch add
 export function registerFilter(name, filter, options, mergeConfig) {
@@ -215,6 +217,23 @@ export function registerFilter(name, filter, options, mergeConfig) {
   tools.each(params, (v, name) => {
     if (v) {
       const { filter, options } = v;
+      if (options) {
+        if (options.isOperator) {
+          const createRegexOperators = nj.createRegexOperators;
+          if (createRegexOperators) {
+            createRegexOperators(name);
+          }
+        }
+
+        const { alias } = options;
+        if (alias) {
+          const createFilterAlias = nj.createFilterAlias;
+          if (createFilterAlias) {
+            createFilterAlias(name, alias);
+            name = alias;
+          }
+        }
+      }
 
       if (filter) {
         filters[name] = filter;
@@ -226,13 +245,18 @@ export function registerFilter(name, filter, options, mergeConfig) {
         if (!filterConfig[name]) {
           filterConfig[name] = _config();
         }
-        tools.assign(filterConfig[name], options);
+        if (tools.isObject(options)) {
+          tools.assign(filterConfig[name], options);
+        }
+        else {
+          filterConfig[name] = _config();
+        }
       }
       else {
         filterConfig[name] = _config(options);
       }
     }
-  }, false, false);
+  }, false);
 }
 
 tools.assign(nj, {
