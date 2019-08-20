@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [v5.0.0-rc.20] 2019.08.20
+
+* 🌟 Added `nornj/lib/filter/lodash`.
+
+## [v5.0.0-rc.19] 2019.07.24
+
+* 🌟 Added sub tag `then` for `if` tag.
+
+## [v5.0.0-rc.15] 2019.06.17
+
+* 🌟 Added `rawStart` and `rawEnd` parameters for delimiters config.
+
 ## [v5.0.0-rc.14] 2019.06.14
 
 * 🌟 The `switch` tag should be prefixed by default when it begin in lowercase.
@@ -54,7 +66,6 @@
 
 * 🌟 改进`for`标签语法。
 * 🌟 改进扩展标签配置信息。
-* 🌟 新增`capitalize`过滤器。
 
 ## [v0.4.12] 2018.09.05
 

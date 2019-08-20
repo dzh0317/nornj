@@ -1,5 +1,5 @@
 /*!
-* NornJ template engine v5.0.0-rc.14
+* NornJ template engine v5.0.0-rc.20
 * (c) 2016-2019 Joe_Sky
 * Released under the MIT License.
 */
@@ -267,11 +267,14 @@
 
     return target;
   };
-  function capitalize(str) {
+  function upperFirst(str) {
     return str[0].toUpperCase() + str.substr(1);
   }
   function lowerFirst(str) {
     return str[0].toLowerCase() + str.substr(1);
+  }
+  function capitalize(str) {
+    return upperFirst(str);
   }
   assign(nj, {
     defineProp: defineProp,
@@ -290,8 +293,9 @@
     obj: obj,
     camelCase: camelCase,
     assign: assign,
-    capitalize: capitalize,
-    lowerFirst: lowerFirst
+    upperFirst: upperFirst,
+    lowerFirst: lowerFirst,
+    capitalize: capitalize
   });
 
   var tools = /*#__PURE__*/Object.freeze({
@@ -314,8 +318,9 @@
     clearQuot: clearQuot,
     camelCase: camelCase,
     assign: assign,
-    capitalize: capitalize,
-    lowerFirst: lowerFirst
+    upperFirst: upperFirst,
+    lowerFirst: lowerFirst,
+    capitalize: capitalize
   });
 
   var components = nj.components,
@@ -396,6 +401,10 @@
     return str.replace(/\-/g, '\\-');
   }
 
+  function _replaceMulti(str) {
+    return str.replace(/\*/g, '\\*');
+  }
+
   function createTmplRule() {
     var rules = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
     var isGlobal = arguments.length > 1 ? arguments[1] : undefined;
@@ -423,7 +432,9 @@
         strProp = rules.strProp,
         template = rules.template,
         tagSp = rules.tagSp,
-        comment = rules.comment;
+        comment = rules.comment,
+        rawStart = rules.rawStart,
+        rawEnd = rules.rawEnd;
 
     if (start) {
       startRule = start;
@@ -457,8 +468,8 @@
       commentRule = comment;
     }
 
-    var firstChar = startRule[0],
-        lastChar = endRule[endRule.length - 1],
+    var firstChar = rawStart != null ? rawStart : startRule[0],
+        lastChar = rawEnd != null ? rawEnd : endRule[endRule.length - 1],
         extensionRules = _replaceMinus(_clearRepeat(extensionRule + propRule + strPropRule + tagSpRule)),
         escapeExtensionRule = _replace$(extensionRule),
         escapePropRule = _replace$(propRule),
@@ -467,7 +478,11 @@
         endRuleR = endRule + lastChar,
         varContent = '[\\s\\S]+?',
         varContentS = '\\.\\.\\.' + varContent,
-        braceParamStr = startRuleR + varContent + endRuleR + '|' + startRule + varContent + endRule;
+        braceParamStr = _replaceMulti(startRuleR + varContent + endRuleR + '|' + startRule + varContent + endRule),
+        escapeStartRule = _replaceMulti(startRule),
+        escapeEndRule = _replaceMulti(endRule),
+        escapeStartRuleR = _replaceMulti(startRuleR),
+        escapeEndRuleR = _replaceMulti(endRuleR);
 
     var tmplRules = {
       startRule: startRule,
@@ -482,21 +497,21 @@
       lastChar: lastChar,
       braceParamStr: braceParamStr,
       xmlOpenTag: _createRegExp('^<([a-z' + firstChar + extensionRules + '][^\\s>]*)[^>]*>$', 'i'),
-      openTagParams: _createRegExp('[\\s]+(((' + startRuleR + '(' + varContent + ')' + endRuleR + ')|(' + startRule + '(' + varContent + ')' + endRule + '))|[^\\s=>]+)(=((\'[^\']+\')|("[^"]+")|([^"\'\\s]+)))?', 'g'),
-      directives: _createRegExp('[\\s]+(((' + startRuleR + '(' + varContent + ')' + endRuleR + ')|(' + startRule + '(' + varContent + ')' + endRule + '))|((:?)(' + escapeExtensionRule + ')?([^\\s=>]+)))(=((\'[^\']+\')|("[^"]+")|([^"\'\\s>]+)))?', 'g'),
+      openTagParams: _createRegExp('[\\s]+(((' + escapeStartRuleR + '(' + varContent + ')' + escapeEndRuleR + ')|(' + escapeStartRule + '(' + varContent + ')' + escapeEndRule + '))|[^\\s=>]+)(=((\'[^\']+\')|("[^"]+")|([^"\'\\s]+)))?', 'g'),
+      directives: _createRegExp('[\\s]+(((' + escapeStartRuleR + '(' + varContent + ')' + escapeEndRuleR + ')|(' + escapeStartRule + '(' + varContent + ')' + escapeEndRule + '))|((:?)(' + escapeExtensionRule + ')?([^\\s=>]+)))(=((\'[^\']+\')|("[^"]+")|([^"\'\\s>]+)))?', 'g'),
       braceParam: _createRegExp(braceParamStr, 'i'),
       braceParamG: _createRegExp(braceParamStr, 'ig'),
-      spreadProp: _createRegExp('[\\s]+(' + startRuleR + '[\\s]*(' + varContentS + ')' + endRuleR + ')|(' + startRule + '[\\s]*(' + varContentS + ')' + endRule + ')', 'g'),
+      spreadProp: _createRegExp('[\\s]+(' + escapeStartRuleR + '[\\s]*(' + varContentS + ')' + escapeEndRuleR + ')|(' + escapeStartRule + '[\\s]*(' + varContentS + ')' + escapeEndRule + ')', 'g'),
       replaceSplit: _createRegExp(braceParamStr),
-      replaceParam: _createRegExp('((' + startRuleR + ')(' + varContent + ')' + endRuleR + ')|((' + startRule + ')(' + varContent + ')' + endRule + ')', 'g'),
+      replaceParam: _createRegExp('((' + escapeStartRuleR + ')(' + varContent + ')' + escapeEndRuleR + ')|((' + escapeStartRule + ')(' + varContent + ')' + escapeEndRule + ')', 'g'),
       checkElem: _createRegExp('([^<>]+)|(<([a-z/!' + firstChar + extensionRules + '][^\\s<>]*)([^<>]*)>|<)([^<]*)', 'ig'),
       extension: _createRegExp('^' + escapeExtensionRule + '([^\\s]+)', 'i'),
       exAll: _createRegExp('^([/]?)(' + escapeExtensionRule + '|' + escapeStrPropRule + escapePropRule + '|' + escapePropRule + ')([^\\s]+)', 'i'),
       include: _createRegExp('<' + escapeExtensionRule + 'include([^>]*)>', 'ig'),
-      incompleteStart: _createRegExp(startRule + '((?!' + endRule + ')[\\s\\S])*$'),
-      incompleteStartR: _createRegExp(startRuleR + '((?!' + endRuleR + ')[\\s\\S])*$'),
-      incompleteEnd: _createRegExp('^[\\s\\S]*?' + endRule),
-      incompleteEndR: _createRegExp('^[\\s\\S]*?' + endRuleR)
+      incompleteStart: _createRegExp(startRule + '((?!' + escapeEndRule + ')[\\s\\S])*$'),
+      incompleteStartR: _createRegExp(escapeStartRuleR + '((?!' + escapeEndRuleR + ')[\\s\\S])*$'),
+      incompleteEnd: _createRegExp('^[\\s\\S]*?' + escapeEndRule),
+      incompleteEndR: _createRegExp('^[\\s\\S]*?' + escapeEndRuleR)
     };
 
     if (isGlobal) {
@@ -883,32 +898,29 @@
         value = false;
       }
 
-      var ret;
+      var ret,
+          props = options.props;
 
       if (!!value) {
-        ret = options.children();
-      } else {
-        var props = options.props;
+        ret = (props && props.then || options.children)();
+      } else if (props) {
+        var elseFn = props['else'];
 
-        if (props) {
-          var elseFn = props['else'];
-
-          if (props.elseifs) {
-            var l = props.elseifs.length;
-            each(props.elseifs, function (elseif, i) {
-              if (!!elseif.value) {
-                ret = elseif.fn();
-                return false;
-              } else if (i === l - 1) {
-                if (elseFn) {
-                  ret = elseFn();
-                }
+        if (props.elseifs) {
+          var l = props.elseifs.length;
+          each(props.elseifs, function (elseif, i) {
+            if (!!elseif.value) {
+              ret = elseif.fn();
+              return false;
+            } else if (i === l - 1) {
+              if (elseFn) {
+                ret = elseFn();
               }
-            }, true);
-          } else {
-            if (elseFn) {
-              ret = elseFn();
             }
+          }, true);
+        } else {
+          if (elseFn) {
+            ret = elseFn();
           }
         }
       }
@@ -918,6 +930,9 @@
       }
 
       return ret;
+    },
+    'then': function then(options) {
+      return options.tagProps.then = options.children;
     },
     'else': function _else(options) {
       return options.tagProps['else'] = options.children;
@@ -948,8 +963,9 @@
 
       var ret,
           props = options.props,
-          l = props.elseifs.length;
-      each(props.elseifs, function (elseif, i) {
+          elseifs = props.elseifs || [{}],
+          l = elseifs.length;
+      each(elseifs, function (elseif, i) {
         if (value === elseif.value) {
           ret = elseif.fn();
           return false;
@@ -1176,6 +1192,7 @@
       needPrefix: true
     }
   };
+  extensionConfig.then = _config(extensionConfig['else']);
   extensionConfig.elseif = _config(extensionConfig['else']);
   extensionConfig.spread = _config(extensionConfig.prop);
   extensionConfig.block = _config(extensionConfig.obj);
@@ -1190,8 +1207,8 @@
   extensionConfig['for'] = _config(extensionConfig.each);
   extensions['case'] = extensions.elseif;
   extensionConfig['case'] = extensionConfig.elseif;
-  extensions['empty'] = extensions['default'] = extensions['else'];
-  extensionConfig['empty'] = extensionConfig['default'] = extensionConfig['else'];
+  extensions.empty = extensions['default'] = extensions['else'];
+  extensionConfig.empty = extensionConfig['default'] = extensionConfig['else'];
   extensions.strProp = extensions.prop;
   extensionConfig.strProp = _config(extensionConfig.prop, {
     useString: true
@@ -1349,8 +1366,8 @@
         return -1;
       }
     },
-    capitalize: function capitalize$1(str) {
-      return capitalize(str);
+    upperFirst: function upperFirst$1(str) {
+      return upperFirst(str);
     },
     lowerFirst: function lowerFirst$1(str) {
       return lowerFirst(str);
@@ -1370,12 +1387,15 @@
     isArrayLike: function isArrayLike$1(val) {
       return isArrayLike(val);
     },
-    currency: function currency(value, decimals, _currency) {
-      if (!(value - parseFloat(value) >= 0)) return filterConfig.currency.placeholder;
+    currency: function currency(value, decimals, symbol, placeholder) {
+      if (!(value - parseFloat(value) >= 0)) {
+        return placeholder != null ? placeholder : filterConfig.currency.placeholder;
+      }
+
       value = parseFloat(value);
-      _currency = decimals != null && typeof decimals == 'string' ? decimals : _currency;
-      _currency = _currency != null && typeof _currency == 'string' ? _currency : filterConfig.currency.symbol;
-      decimals = decimals != null && typeof decimals == 'number' ? decimals : 2;
+      symbol = decimals != null && nj.isString(decimals) ? decimals : symbol;
+      symbol = symbol != null && nj.isString(symbol) ? symbol : filterConfig.currency.symbol;
+      decimals = decimals != null && nj.isNumber(decimals) ? decimals : 2;
       var stringified = Math.abs(value).toFixed(decimals);
 
       var _int = decimals ? stringified.slice(0, -1 - decimals) : stringified;
@@ -1386,7 +1406,7 @@
       var _float = decimals ? stringified.slice(-1 - decimals) : '';
 
       var sign = value < 0 ? '-' : '';
-      return sign + _currency + head + _int.slice(i).replace(REGEX_DIGITS_RE, '$1,') + _float;
+      return sign + symbol + head + _int.slice(i).replace(REGEX_DIGITS_RE, '$1,') + _float;
     }
   };
 
@@ -1448,7 +1468,7 @@
     '..': _config$1(_defaultCfg$1),
     rLt: _config$1(_defaultCfg$1),
     '<=>': _config$1(_defaultCfg$1),
-    capitalize: _config$1(_defaultCfg$1),
+    upperFirst: _config$1(_defaultCfg$1),
     lowerFirst: _config$1(_defaultCfg$1),
     camelCase: _config$1(_defaultCfg$1),
     isObject: _config$1(_defaultCfg$1),
@@ -1459,7 +1479,9 @@
       symbol: '$',
       placeholder: ''
     })
-  }; //Register filter and also can batch add
+  };
+  filters.capitalize = filters.upperFirst;
+  filterConfig.capitalize = _config$1(filterConfig.upperFirst); //Register filter and also can batch add
 
   function registerFilter(name, filter, options, mergeConfig) {
     var params = name;
@@ -2814,7 +2836,7 @@
       } //hash参数
 
 
-      var retP = _buildParams(node, fns, counter, false, level, tagName),
+      var retP = _buildParams(node, fns, counter, useStringLocal, level, tagName),
           paramsStr = retP[0],
           _paramsC = retP[1];
 
@@ -3593,7 +3615,7 @@
   } //Precompile template
 
 
-  function precompile(tmpl, outputH, tmplRule) {
+  function precompile(tmpl, outputH, tmplRule, hasAst) {
     var root = _createAstRoot();
 
     if (tmpl.quasis) {
@@ -3617,7 +3639,16 @@
     }
 
     checkElem(tmpl._njTmpl, root, tmplRule);
-    return buildRuntime(root.content, root, !outputH);
+    var tmplFns = buildRuntime(root.content, root, !outputH);
+
+    if (hasAst) {
+      return {
+        fns: tmplFns,
+        ast: root
+      };
+    } else {
+      return tmplFns;
+    }
   }
 
   function _createRender(outputH) {
@@ -3698,16 +3729,12 @@
     return (nj.outputH ? taggedTmplH : taggedTmpl).apply(null, arguments)();
   }
 
-  var _taggedExpression = createTaggedTmpl({
-    isExpression: true
-  });
-
   var _taggedExpressionH = createTaggedTmplH({
     isExpression: true
   });
 
   function expression() {
-    return (nj.outputH ? _taggedExpressionH : _taggedExpression).apply(null, arguments)();
+    return _taggedExpressionH.apply(null, arguments)();
   }
 
   var _taggedCssH = createTaggedTmplH({
