@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [v5.0.3] 2019.12.07
+
+* :bug: Fix the babel config sometimes fail to read.
+
+## [v5.0.0] 2019.12.03
+
+* 🚩 Support complete typescript type definition.
+
+## [v5.0.0-rc.35] 2019.09.14
+
+* 🌟 Optimizing auto import the NornJ package.
+
 ## [v5.0.0-rc.32] 2019.08.22
 
 * 🌟 Support syntax such as:

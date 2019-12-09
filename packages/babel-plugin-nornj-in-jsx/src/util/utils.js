@@ -1,13 +1,9 @@
-const nj = require('nornj/dist/nornj.common').default;
+const nj = require('nornj').default;
 
-function setTmplConfig(opts, isInit) {
-  if (isInit && nj._alreadySetConfigs) {
-    return;
-  }
-
+function setTmplConfig(opts) {
   if (opts.extensionConfig) {
-    let extensionConfig = {},
-      extensionConfigs = opts.extensionConfig;
+    const extensionConfig = {};
+    let extensionConfigs = opts.extensionConfig;
     if (!Array.isArray(extensionConfigs)) {
       extensionConfigs = [extensionConfigs];
     }
@@ -21,9 +17,10 @@ function setTmplConfig(opts, isInit) {
     });
     nj.registerExtension(extensionConfig, null, null, true);
   }
+
   if (opts.filterConfig) {
-    let filterConfig = {},
-      filterConfigs = opts.filterConfig;
+    const filterConfig = {};
+    let filterConfigs = opts.filterConfig;
     if (!Array.isArray(filterConfigs)) {
       filterConfigs = [filterConfigs];
     }
@@ -37,8 +34,6 @@ function setTmplConfig(opts, isInit) {
     });
     nj.registerFilter(filterConfig, null, null, true);
   }
-
-  isInit && (nj._alreadySetConfigs = true);
 }
 
 function locInfo(path) {

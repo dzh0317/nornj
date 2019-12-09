@@ -1,11 +1,11 @@
-const nj = require('nornj/dist/nornj.common').default;
+const nj = require('nornj').default;
 const transformExTag = require('./exTag');
 const transformDirective = require('./directive');
 const transformTaggedTemplate = require('./taggedTemplate');
 const astUtil = require('./util/ast');
 const utils = require('./util/utils');
 
-module.exports = function (babel) {
+module.exports = function(babel) {
   const types = babel.types;
   const exTagHandler = transformExTag(babel);
   const directiveHandler = transformDirective(babel);
@@ -18,9 +18,9 @@ module.exports = function (babel) {
         const nodeName = path.node.openingElement.name.name;
         if (nodeName != null) {
           const hasMobx = nodeName.toLowerCase() === 'mobxobserver';
-          hasMobx
-            && !nj.extensionConfig.mobxObserver
-            && utils.setTmplConfig({ extensionConfig: require('nornj-react/mobx/extensionConfig') });
+          hasMobx &&
+            !nj.extensionConfig.mobxObserver &&
+            utils.setTmplConfig({ extensionConfig: require('nornj-react/mobx/extensionConfig') });
 
           if (astUtil.isExTag(nodeName)) {
             state.hasNjInJSX = true;
@@ -37,11 +37,14 @@ module.exports = function (babel) {
         if (directives.length) {
           state.hasNjInJSX = true;
 
-          const hasMobx = directives.reduce((result, directive) =>
-            result || (directive.indexOf('n-mobxBind') > -1 || directive.indexOf('n-mstBind') > -1), false);
-          hasMobx
-            && !nj.extensionConfig.mobxBind
-            && utils.setTmplConfig({ extensionConfig: require('nornj-react/mobx/extensionConfig') });
+          const hasMobx = directives.reduce(
+            (result, directive) =>
+              result || directive.indexOf('n-mobxBind') > -1 || directive.indexOf('n-mstBind') > -1,
+            false
+          );
+          hasMobx &&
+            !nj.extensionConfig.mobxBind &&
+            utils.setTmplConfig({ extensionConfig: require('nornj-react/mobx/extensionConfig') });
           if (hasMobx) {
             state.hasMobxWithNj = true;
           }
@@ -52,7 +55,7 @@ module.exports = function (babel) {
     },
     TaggedTemplateExpression(path, state) {
       const taggedName = path.node.tag.name;
-      if (TAGGED_TEMPLATES.indexOf(taggedName) >= 0) {
+      if (TAGGED_TEMPLATES.indexOf(taggedName) >= 0 && !state.opts.noTaggedTemplates) {
         state.hasNjInJSX = true;
 
         path.replaceWith(taggedTemplateHandler(path.node, path, state, taggedName));
@@ -62,7 +65,17 @@ module.exports = function (babel) {
       const { value } = path.node.source;
       switch (value) {
         case 'nornj':
-          state.hasImportNj = true;
+          {
+            const specifiers = path.node.specifiers;
+            if (
+              specifiers &&
+              specifiers.length &&
+              specifiers[0].type === 'ImportDefaultSpecifier' &&
+              specifiers[0].local.name === 'nj'
+            ) {
+              state.hasImportNj = true;
+            }
+          }
           break;
         case 'nornj-react':
         case 'nornj-react/native':
@@ -82,10 +95,12 @@ module.exports = function (babel) {
           }
         });
 
-        args.length && path.insertAfter(types.expressionStatement(types.callExpression(
-          types.functionExpression(null, [], types.blockStatement([])),
-          args
-        )));
+        args.length &&
+          path.insertAfter(
+            types.expressionStatement(
+              types.callExpression(types.functionExpression(null, [], types.blockStatement([])), args)
+            )
+          );
       }
     },
     Program: {
@@ -95,7 +110,7 @@ module.exports = function (babel) {
         state.hasImportNj = false;
         state.hasImportNjr = false;
         state.hasImportNjrMobx = false;
-        utils.setTmplConfig(state.opts, true);
+        utils.setTmplConfig(state.opts);
       },
       exit(path, state) {
         if (!state.hasNjInJSX) {
@@ -103,27 +118,22 @@ module.exports = function (babel) {
         }
 
         if (state.hasMobxWithNj && !state.hasImportNjrMobx) {
-          path.node.body.unshift(types.importDeclaration(
-            [],
-            types.stringLiteral(`nornj-react/mobx${state.opts.rn ? '/native' : ''}`)
-          ));
+          path.node.body.unshift(
+            types.importDeclaration([], types.stringLiteral(`nornj-react/mobx${state.opts.rn ? '/native' : ''}`))
+          );
         }
         if (!state.hasImportNjr) {
-          path.node.body.unshift(types.importDeclaration(
-            [],
-            types.stringLiteral(`nornj-react${state.opts.rn ? '/native' : ''}`)
-          ));
+          path.node.body.unshift(
+            types.importDeclaration([], types.stringLiteral(`nornj-react${state.opts.rn ? '/native' : ''}`))
+          );
         }
         if (!state.hasImportNj) {
-          path.node.body.unshift(types.importDeclaration(
-            [
-              types.importDefaultSpecifier(types.identifier('nj')),
-              types.importSpecifier(types.identifier('n'), types.identifier('expression')),
-              types.importSpecifier(types.identifier('t'), types.identifier('template')),
-              types.importSpecifier(types.identifier('s'), types.identifier('css'))
-            ],
-            types.stringLiteral('nornj')
-          ));
+          path.node.body.unshift(
+            types.importDeclaration(
+              [types.importDefaultSpecifier(types.identifier('nj'))],
+              types.stringLiteral('nornj')
+            )
+          );
         }
       }
     }
