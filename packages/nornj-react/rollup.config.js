@@ -115,7 +115,7 @@ config.plugins.push(
   license({
     banner: `/*!
  * NornJ-React${withEx ? '-' + withEx : ''} v${require('../../package.json').version}
- * (c) 2016-2019 Joe_Sky
+ * (c) 2016-2020 Joe_Sky
  * Released under the MIT License.
  */`
   })

@@ -1,6 +1,7 @@
 import nj from '../core';
 import * as tools from '../utils/tools';
 import * as tranData from '../transforms/transformData';
+import { Template } from '../interface';
 
 //编译模板并返回转换函数
 function _createCompile(outputH?: boolean) {
@@ -49,11 +50,11 @@ function _createRender(outputH?: boolean) {
     return (outputH ? compileH : compile)(
       tmpl,
       options
-        ? /* eslint-disable */ {
+        ? {
             tmplKey: options.tmplKey ? options.tmplKey : tmpl._njTmplKey,
             fileName: options.fileName,
             delimiters: options.delimiters
-          } /* eslint-enable */
+          }
         : tmpl._njTmplKey
     ).apply(null, tools.arraySlice(arguments, 1));
   };
@@ -66,7 +67,7 @@ function _buildRender(outputH?: boolean) {
   return function(tmpl, params) {
     const tmplMainFn = (outputH ? compileH : compile)(tmpl, tmpl._njTmplKey);
     if (params) {
-      const tmplFn = function() {
+      const tmplFn = function(this: Template.Context) {
         return tmplMainFn.apply(this, tools.arrayPush([params], arguments));
       };
       tools.defineProp(params, '_njParam', {

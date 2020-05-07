@@ -228,12 +228,15 @@ function _buildDataValue(ast, escape, fns, level) {
         ')' +
         (isAccessor ? `, ${CONTEXT}` + ')' : '');
     } else {
-      let dataStr = special === CUSTOM_VAR ? data : `${CONTEXT}.` + data;
+      const isCustomVar = special === CUSTOM_VAR;
+      let dataStr = isCustomVar ? data : `${CONTEXT}.` + data;
       if (tools.isObject(special)) {
         dataStr = special(dataStr);
       }
       dataValueStr = special
-        ? dataStr
+        ? isCustomVar || !hasSet
+          ? dataStr
+          : `{ source: c, value: ${dataStr}, prop: '${data}', _njSrc: true }`
         : (isAccessor ? `${GLOBAL}.c(` : '') +
           `${CONTEXT}.d('` +
           name +
@@ -731,14 +734,14 @@ function _buildNode(node, parent, fns, counter, retType, level, useStringLocal, 
       retType,
       !useStringF
         ? { _compParam: _compParamC }
-        : /* eslint-disable */ {
+        : {
             _type: _typeC,
             _typeS: _type,
             _typeR: _typeRefer,
             _params: paramsStr !== '' ? _paramsC : null,
             _children: _childrenC,
             _selfClose: node.selfCloseTag
-          } /* eslint-enable */,
+          },
       fns,
       level,
       useStringLocal,
@@ -792,7 +795,6 @@ function _buildRender(node, parent, nodeType, retType, params, fns, level, useSt
 
   switch (nodeType) {
     case 1: //文本节点
-      /* eslint-disable */
       retStr =
         (!useStringF || allowNewline || noLevel
           ? ''
@@ -804,7 +806,6 @@ function _buildRender(node, parent, nodeType, retType, params, fns, level, useSt
         _buildLevelSpace(level, fns, allowNewline) +
         _buildLevelSpaceRt(useStringF, isFirst || noLevel) +
         params.text;
-      /* eslint-enable */
       break;
     case 2: //扩展标签
       retStr =

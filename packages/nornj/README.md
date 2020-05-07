@@ -17,11 +17,9 @@
 <a href="https://travis-ci.org/joe-sky/nornj"><img src="https://travis-ci.org/joe-sky/nornj.svg?branch=master" alt="Travis CI Status"/></a>
 <a href="https://codecov.io/gh/joe-sky/nornj"><img src="https://codecov.io/gh/joe-sky/nornj/branch/master/graph/badge.svg" alt="Codecov" /></a>
 [![NPM Downloads][downloads-image]][npm-url]
-[![](https://img.shields.io/bundlephobia/minzip/nornj@next.svg?style=flat)](https://bundlephobia.com/result?p=nornj@next)
+[![](https://img.shields.io/bundlephobia/minzip/nornj@next.svg?style=flat)](https://bundlephobia.com/result?p=nornj)
 
-English | [简体中文](https://github.com/joe-sky/nornj/blob/master/docs/README.zh.md)
-
-> Notice: NornJ latest major version `5.0.0` will release soon, the `0.4.x` will no longer be updated.
+English | [简体中文](https://github.com/joe-sky/nornj/blob/master/README.zh.md)
 
 ## Documents
 
@@ -148,7 +146,7 @@ In the above example, a template function was created using `tagged templates AP
 ## Install
 
 ```sh
-npm install babel-plugin-nornj-in-jsx@next  #or yarn add babel-plugin-nornj-in-jsx@next
+npm install babel-plugin-nornj-in-jsx  #or yarn add babel-plugin-nornj-in-jsx
 ```
 
 Next, add `nornj-in-jsx` to plugins in your babel configuration:

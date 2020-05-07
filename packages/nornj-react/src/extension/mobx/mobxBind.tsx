@@ -1,8 +1,11 @@
-import nj, { registerExtension, ExtensionDelegateOption, Component } from 'nornj';
+import nj, { registerExtension, ExtensionDelegateOption, Component, ComponentOption } from 'nornj';
 import React, { useRef } from 'react';
 import { toJS } from 'mobx';
 import extensionConfigs from '../../../mobx/extensionConfig';
 import { debounce } from '../../utils';
+import { MobxFormDataInstance } from '../../interface';
+
+const FORMDATA_NOT_TRIGGER = ['valueChange', 'none'];
 
 interface IProps extends React.InputHTMLAttributes<any> {
   mobxBindDirectiveOptions: ExtensionDelegateOption;
@@ -88,13 +91,14 @@ const MobxBindWrap = React.forwardRef<any, IProps>(
         );
       };
     } else {
+      const getValueFromEvent = componentConfig.getValueFromEvent;
       compProps[valuePropName] = _value;
-      compProps[changeEventName] = function(v) {
+      compProps[changeEventName] = function(...args: any[]) {
         _setValue(
-          v,
+          getValueFromEvent ? getValueFromEvent(...args) : args[0],
           {
             value,
-            args: arguments,
+            args,
             changeEventName,
             changeEvent,
             valuePropName,
@@ -105,25 +109,46 @@ const MobxBindWrap = React.forwardRef<any, IProps>(
       };
     }
 
-    _formDataTrigger(value, changeEventName, true, props, compProps, $this);
+    _formDataTrigger(value, changeEventName, componentConfig, true, props, compProps, $this);
 
     return <MobxBindTag {...props} {...compProps} ref={ref} />;
   }
 );
 
-function _formDataTrigger(value, changeEventName, notDirect?, props?, compProps?, $this?) {
-  if (value.source && value.source._njMobxFormData) {
-    const trigger = value.source[`trigger_${value.prop}`];
-    if (trigger !== changeEventName) {
+function _formDataTrigger(
+  value,
+  changeEventName,
+  componentConfig?: ComponentOption,
+  notDirect?,
+  props?,
+  compProps?,
+  $this?
+) {
+  const formData: MobxFormDataInstance = value?.source;
+  if (formData?._njMobxFormData) {
+    const fieldName: string = value.prop;
+    const fieldData = formData.fieldDatas.get(fieldName);
+    const fieldDefaultRule = componentConfig?.fieldDefaultRule;
+    if (fieldDefaultRule) {
+      fieldData.setDefaultRule(fieldDefaultRule);
+    }
+
+    const trigger = fieldData.trigger;
+    if (FORMDATA_NOT_TRIGGER.indexOf(trigger) > -1) {
+      return;
+    }
+    if (!notDirect) {
+      if (trigger === changeEventName) {
+        formData.validate(fieldName).catch(nj.noop);
+      }
+    } else if (trigger !== changeEventName) {
       const triggerEvent = props[trigger];
       compProps[trigger] = function(e: React.BaseSyntheticEvent) {
         e && e.persist && e.persist();
 
-        value.source.validate(value.prop);
+        formData.validate(fieldName).catch(nj.noop);
         triggerEvent && triggerEvent.apply($this, arguments);
       };
-    } else if (!notDirect) {
-      value.source.validate(value.prop);
     }
   }
 }

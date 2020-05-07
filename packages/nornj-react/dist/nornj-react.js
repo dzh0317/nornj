@@ -1,6 +1,6 @@
 /*!
- * NornJ-React v5.0.3
- * (c) 2016-2019 Joe_Sky
+ * NornJ-React v5.2.0-beta.5
+ * (c) 2016-2020 Joe_Sky
  * Released under the MIT License.
  */
 (function (global, factory) {
@@ -174,8 +174,8 @@
   function debounce(fn, delay) {
     var timeoutID = null;
     return function () {
-      var _this = this,
-          _arguments = arguments;
+      var _arguments = arguments,
+          _this = this;
 
       clearTimeout(timeoutID);
       timeoutID = setTimeout(function () {
@@ -274,6 +274,7 @@
     tagProps.DebounceTag = tagName;
     tagProps.debounceDirectiveOptions = options;
   }, {
+    useExpressionInProps: true,
     onlyGlobal: true,
     isDirective: true
   });

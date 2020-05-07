@@ -4,8 +4,8 @@ const { locInfo } = require('./utils');
 
 function buildAttrs(types, tagName, attrs, quasis, expressions, lastAttrStr, newContextData) {
   const attrNames = Object.keys(attrs);
-  const exTagConfig = nj.extensionConfig[tagName];
-  const newContext = exTagConfig && exTagConfig.newContext;
+  const exTagConfig = nj.extensionConfig[tagName] || {};
+  const newContext = exTagConfig.newContext;
   const isCtxObject = nj.isObject(newContext);
   const getDataFromProps = newContext && newContext.getDataFromProps;
   const dataFromPropsExcept = getDataFromProps && getDataFromProps.except;
@@ -48,7 +48,7 @@ function buildAttrs(types, tagName, attrs, quasis, expressions, lastAttrStr, new
         } else if (attr.value.type == 'JSXExpressionContainer') {
           const expr = attr.value.expression;
 
-          if (types.isTemplateLiteral(expr)) {
+          if (types.isTemplateLiteral(expr) && exTagConfig.useExpressionInProps) {
             if (expr.quasis.length === 1) {
               lastAttrStr = attrStr + '"{{' + expr.quasis[0].value.cooked + '}}"';
             } else {
@@ -158,6 +158,7 @@ function createRenderTmpl(babel, quasis, expressions, opts, path, taggedName) {
   const types = babel.types;
   const isTmplFnS = taggedName === 'njs';
   const isTmplFn = taggedName === 'nj' || taggedName === 'html' || isTmplFnS;
+  const expressionParamIdentifiers = new Map();
 
   let tmplStr = '';
   let paramCount = 0;
@@ -165,12 +166,13 @@ function createRenderTmpl(babel, quasis, expressions, opts, path, taggedName) {
     tmplStr += q.value.cooked;
     if (i < quasis.length - 1) {
       const expr = expressions[i];
+      const paramName = '_njParam' + paramCount;
       tmplStr +=
-        (expr.noExpression ? '' : '{{') +
-        _expressionPrefix(expr) +
-        '_njParam' +
-        paramCount +
-        (expr.noExpression ? '' : '}}');
+        (expr.noExpression ? '' : '{{') + _expressionPrefix(expr) + paramName + (expr.noExpression ? '' : '}}');
+
+      if (expr.paramIdentifierName != null) {
+        expressionParamIdentifiers.set(paramName, expr.paramIdentifierName);
+      }
       paramCount++;
     }
   });
@@ -305,6 +307,14 @@ function createRenderTmpl(babel, quasis, expressions, opts, path, taggedName) {
     });
   }
 
+  if (expressionParamIdentifiers.size) {
+    expressionParamIdentifiers.forEach((v, k) => {
+      if (path.scope.hasBinding(v)) {
+        tmplParams.push(types.objectProperty(types.identifier(`set${k}`), types.identifier(v)));
+      }
+    });
+  }
+
   const renderFnParams = [types.identifier(tmplObj)];
   if (tmplParams.length) {
     renderFnParams.push(types.objectExpression(tmplParams));
@@ -337,7 +347,11 @@ function _buildTmplFns(fns, tmplKey) {
 
 function _getExpressionParams(paramsAst, paramIdentifiers) {
   paramsAst.forEach(pAst => {
-    if (!pAst.isBasicType && pAst.name !== 'this' && !n`${pAst}.name.startsWith('_njParam')`) {
+    if (
+      !pAst.isBasicType &&
+      pAst.name !== 'this' &&
+      !(pAst.name && pAst.name.startsWith('_njParam')) /* && !n`${pAst}.name.startsWith('_njParam')` */
+    ) {
       paramIdentifiers.add(pAst.name);
     }
     if (pAst.filters) {

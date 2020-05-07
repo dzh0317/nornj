@@ -20,6 +20,7 @@ export interface ComponentOption {
   hasEventObject?: boolean;
   targetPropName?: string;
   valuePropName?: string;
+  getValueFromEvent?: Function;
   changeEventName?: string;
   needToJS?: boolean;
   [key: string]: any;
@@ -46,6 +47,7 @@ export namespace Template {
   export interface Context {
     $this: ContextThis;
     data: Data[] | any[];
+    getData: typeof import('../src/transforms/transformData').getData;
     parent: Context;
     index: number;
     item: any;
@@ -279,6 +281,10 @@ export interface Export {
   noWsMode: boolean;
 
   fixTagName: boolean;
+
+  escape?: typeof import('../src/utils/escape').escape;
+
+  unescape?: typeof import('../src/utils/escape').unescape;
 
   global: { [name: string]: any };
 

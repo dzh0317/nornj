@@ -1,6 +1,6 @@
 /*!
- * NornJ template engine v5.0.3
- * (c) 2016-2019 Joe_Sky
+ * NornJ template engine v5.2.0-beta.5
+ * (c) 2016-2020 Joe_Sky
  * Released under the MIT License.
  */
 'use strict';
@@ -751,9 +751,7 @@ function tmplWrap(configs, main) {
   return function (param1, param2) {
     var ctx = this,
         data = arraySlice(arguments);
-    return main(configs, ctx &&
-    /* eslint-disable */
-    ctx._njCtx ? assign({}, ctx, {
+    return main(configs, ctx && ctx._njCtx ? assign({}, ctx, {
       data: arrayPush(data, ctx.data)
     }) : {
       data: data,
@@ -766,9 +764,7 @@ function tmplWrap(configs, main) {
       d: getData,
       icp: _getLocalComponents(param1 && param1._njParam ? param2 : param1),
       _njCtx: true
-    }
-    /* eslint-enable */
-    );
+    });
   };
 }
 
@@ -1075,11 +1071,7 @@ var extensions = {
       var _options2 = options,
           props = _options2.props;
       return options.children({
-        data: [props && props.as ?
-        /* eslint-disable */
-        _defineProperty({}, props.as, originalData)
-        /* eslint-enable */
-        : originalData]
+        data: [props && props.as ? _defineProperty({}, props.as, originalData) : originalData]
       });
     }
   },
@@ -1105,7 +1097,7 @@ function _config(params, extra) {
     isSubTag: false,
     isDirective: false,
     isBindable: false,
-    useExpressionInProps: true,
+    useExpressionInProps: false,
     hasName: true,
     noTagName: false,
     hasTagProps: true,
@@ -1130,18 +1122,23 @@ var _defaultCfg = {
   hasName: false,
   hasTagProps: false,
   hasTmplCtx: false
-}; //Extension default config
+};
+
+var _defaultCfgExpInProps = _config(_defaultCfg, {
+  useExpressionInProps: true
+}); //Extension default config
+
 
 var extensionConfig = {
-  "if": _config(_defaultCfg),
-  "else": _config(_defaultCfg, {
+  "if": _config(_defaultCfgExpInProps),
+  "else": _config(_defaultCfgExpInProps, {
     isSubTag: true,
     hasTagProps: true
   }),
-  "switch": _config(_defaultCfg, {
+  "switch": _config(_defaultCfgExpInProps, {
     needPrefix: exports.SwitchPrefixConfig.OnlyLowerCase
   }),
-  each: _config(_defaultCfg, {
+  each: _config(_defaultCfgExpInProps, {
     newContext: {
       item: 'item',
       index: 'index',
@@ -1166,7 +1163,6 @@ var extensionConfig = {
     }
   }),
   style: {
-    useExpressionInProps: false,
     needPrefix: true
   }
 };
@@ -1176,6 +1172,7 @@ extensionConfig.spread = _config(extensionConfig.prop);
 extensionConfig.block = _config(extensionConfig.obj);
 extensionConfig.arg = _config(extensionConfig.prop);
 extensionConfig.show = _config(extensionConfig.prop, {
+  useExpressionInProps: true,
   noTagName: true,
   hasOutputH: true
 });
@@ -1331,7 +1328,7 @@ var filters = {
     return styleProps(cssText);
   },
   //Generate array by two positive integers,closed interval
-  '..': _getArrayByNum(1),
+  rOpe: _getArrayByNum(1),
   //Generate array by two positive integers,right open interval
   rLt: _getArrayByNum(0),
   //Compare two number or letter
@@ -1443,7 +1440,7 @@ var filterConfig = {
   bool: _config$1(_defaultCfg$1),
   reg: _config$1(_defaultCfg$1),
   css: _config$1(_defaultCfg$1),
-  '..': _config$1(_defaultCfg$1),
+  rOpe: _config$1(_defaultCfg$1),
   rLt: _config$1(_defaultCfg$1),
   '<=>': _config$1(_defaultCfg$1),
   upperFirst: _config$1(_defaultCfg$1),
@@ -1687,6 +1684,7 @@ var REGEX_QUOTE = /"[^"]*"|'[^']*'/g;
 var REGEX_OPERATORS_ESCAPE = /\*|\||\/|\.|\?|\+/g;
 var SP_FILTER_LOOKUP = {
   '||': 'or',
+  '..': 'rOpe',
   '..<': 'rLt'
 };
 var REGEX_SP_FILTER;
@@ -1700,7 +1698,7 @@ function createFilterAlias(name, alias) {
     return o.replace(REGEX_OPERATORS_ESCAPE, function (match) {
       return '\\' + match;
     });
-  }).join('|') + ')[\\s]*)', 'g');
+  }).join('|') + ')[\\s]+)', 'g');
 }
 
 createFilterAlias();
@@ -2522,13 +2520,14 @@ function _buildDataValue(ast, escape, fns, level) {
     if (!special && !specialP) {
       dataValueStr = (isAccessor ? "".concat(GLOBAL, ".c(") : '') + "".concat(CONTEXT, ".d('") + name + "'" + (hasSet ? ', 0, true' : '') + ')' + (isAccessor ? ", ".concat(CONTEXT) + ')' : '');
     } else {
-      var dataStr = special === CUSTOM_VAR ? data : "".concat(CONTEXT, ".") + data;
+      var isCustomVar = special === CUSTOM_VAR;
+      var dataStr = isCustomVar ? data : "".concat(CONTEXT, ".") + data;
 
       if (isObject(special)) {
         dataStr = special(dataStr);
       }
 
-      dataValueStr = special ? dataStr : (isAccessor ? "".concat(GLOBAL, ".c(") : '') + "".concat(CONTEXT, ".d('") + name + "', " + dataStr + (hasSet ? ', true' : '') + ')' + (isAccessor ? ", ".concat(CONTEXT) + ')' : '');
+      dataValueStr = special ? isCustomVar || !hasSet ? dataStr : "{ source: c, value: ".concat(dataStr, ", prop: '").concat(data, "', _njSrc: true }") : (isAccessor ? "".concat(GLOBAL, ".c(") : '') + "".concat(CONTEXT, ".d('") + name + "', " + dataStr + (hasSet ? ', true' : '') + ')' + (isAccessor ? ", ".concat(CONTEXT) + ')' : '');
     }
   }
 
@@ -2952,18 +2951,14 @@ function _buildNode(node, parent, fns, counter, retType, level, useStringLocal, 
 
     fnStr += _buildRender(node, parent, 3, retType, !useStringF ? {
       _compParam: _compParamC
-    } :
-    /* eslint-disable */
-    {
+    } : {
       _type: _typeC,
       _typeS: _type,
       _typeR: _typeRefer,
       _params: _paramsStr !== '' ? _paramsC2 : null,
       _children: _childrenC,
       _selfClose: node.selfCloseTag
-    }
-    /* eslint-enable */
-    , fns, level, useStringLocal, node.allowNewline, isFirst);
+    }, fns, level, useStringLocal, node.allowNewline, isFirst);
   }
 
   return fnStr;
@@ -2997,11 +2992,7 @@ function _buildRender(node, parent, nodeType, retType, params, fns, level, useSt
   switch (nodeType) {
     case 1:
       //文本节点
-
-      /* eslint-disable */
       retStr = (!useStringF || allowNewline || noLevel ? '' : isFirst ? parent.type !== 'nj_root' ? "".concat(GLOBAL, ".fl(").concat(CONTEXT, ") + ") : '' : "'\\n' + ") + _buildLevelSpace(level, fns, allowNewline) + _buildLevelSpaceRt(useStringF, isFirst || noLevel) + params.text;
-      /* eslint-enable */
-
       break;
 
     case 2:
@@ -3230,15 +3221,11 @@ function compileStringTmpl(tmpl) {
       }
     }
 
-    tmplFn =
-    /* eslint-disable */
-    params ? function () {
+    tmplFn = params ? function () {
       return tmplMainFn.apply(this, arrayPush([params], arguments));
     } : function () {
       return tmplMainFn.apply(this, arguments);
     };
-    /* eslint-enable */
-
     defineProps(tmplFn, {
       _njTmpl: {
         value: ret
@@ -3562,6 +3549,7 @@ function _setText(text, elemArr) {
   elemArr.push(text);
 }
 
+//编译模板并返回转换函数
 function _createCompile(outputH) {
   return function (tmpl, tmplKey, fileName, delimiters, tmplRule) {
     if (!tmpl) {
@@ -3694,15 +3682,11 @@ function precompile(tmpl, outputH) {
 
 function _createRender(outputH) {
   return function (tmpl, options) {
-    return (outputH ? compileH : compile)(tmpl, options ?
-    /* eslint-disable */
-    {
+    return (outputH ? compileH : compile)(tmpl, options ? {
       tmplKey: options.tmplKey ? options.tmplKey : tmpl._njTmplKey,
       fileName: options.fileName,
       delimiters: options.delimiters
-    }
-    /* eslint-enable */
-    : tmpl._njTmplKey).apply(null, arraySlice(arguments, 1));
+    } : tmpl._njTmplKey).apply(null, arraySlice(arguments, 1));
   };
 }
 

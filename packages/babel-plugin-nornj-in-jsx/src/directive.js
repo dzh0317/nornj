@@ -8,6 +8,7 @@ module.exports = function(babel) {
   return function(node, path, state) {
     const quasis = [];
     const expressions = [];
+    const expressionIdentifiers = new Set();
     const isJSXMemberExpression = types.isJSXMemberExpression(node.openingElement.name);
     let elName = node.openingElement.name.name;
     const key = astUtil.getKey(node);
@@ -89,16 +90,16 @@ module.exports = function(babel) {
           lastAttrStr = attrStr.substr(0, attrStr.length - 1);
         } else if (attr.value.type == 'JSXExpressionContainer') {
           const expr = attr.value.expression;
-          const cannotUseExpression = directiveConfig.useExpressionInProps === false;
+          const { useExpressionInProps } = directiveConfig;
 
           //Template literal case 1: `123 + abc`
-          if (isDirective && !cannotUseExpression && types.isStringLiteral(expr) && !expr.extra) {
+          if (isDirective && useExpressionInProps && types.isStringLiteral(expr) && !expr.extra) {
             lastAttrStr = attrStr + '"{{' + expr.value + '}}"';
           }
           //Template literal case 2: `123 + abc + ${def}`
           else if (
             isDirective &&
-            !cannotUseExpression &&
+            useExpressionInProps &&
             types.isCallExpression(expr) &&
             types.isStringLiteral(expr.callee.object) &&
             expr.callee.property.name === 'concat'
@@ -114,30 +115,37 @@ module.exports = function(babel) {
             }
 
             _buildFromNjExp(directiveExpressions, attrStr);
-          } else if (
-            isDirective &&
-            !cannotUseExpression &&
-            directiveConfig.isBindable &&
-            types.isMemberExpression(expr)
-          ) {
-            const directiveMemberExpressions = generate.getDirectiveMemberExpression(types, expr);
-            quasis.push(
-              types.TemplateElement({
-                raw: '',
-                cooked: attrStr + '"{{'
-              })
-            );
+          } else if (isDirective && useExpressionInProps && directiveConfig.isBindable) {
+            if (types.isMemberExpression(expr)) {
+              const directiveMemberExpressions = generate.getDirectiveMemberExpression(types, expr);
+              quasis.push(
+                types.TemplateElement({
+                  raw: '',
+                  cooked: attrStr + '"{{'
+                })
+              );
 
-            const exprFirst = directiveMemberExpressions[0];
-            exprFirst.noExpression = true;
-            expressions.push(exprFirst);
-            lastAttrStr =
-              '.' +
-              directiveMemberExpressions
-                .slice(1)
-                .map(e => e.name)
-                .join('.') +
-              '}}"';
+              const exprFirst = directiveMemberExpressions[0];
+              exprFirst.noExpression = true;
+              expressions.push(exprFirst);
+              lastAttrStr =
+                '.' +
+                directiveMemberExpressions
+                  .slice(1)
+                  .map(e => e.name)
+                  .join('.') +
+                '}}"';
+            } else {
+              quasis.push(
+                types.TemplateElement({
+                  raw: '',
+                  cooked: attrStr
+                })
+              );
+              expr.paramIdentifierName = `set${nj.upperFirst(expr.name)}`;
+              expressions.push(expr);
+              lastAttrStr = '';
+            }
           } else {
             quasis.push(
               types.TemplateElement({
@@ -212,6 +220,6 @@ module.exports = function(babel) {
       );
     }
 
-    return generate.createRenderTmpl(babel, quasis, expressions, state.opts, path, 'directive');
+    return generate.createRenderTmpl(babel, quasis, expressions, state.opts, path, 'directive', expressionIdentifiers);
   };
 };

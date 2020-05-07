@@ -12,7 +12,15 @@ declare function MobxObserver(): any;
  */
 declare function NjMobxObserver(): any;
 
+declare const MobxFormData: NornJReact.MobxFormData;
+
+declare const MobxFieldData: NornJReact.MobxFieldData;
+
+type JSXElementWithMobxFormData = NornJReact.JSXElementWithMobxFormData;
+
 declare namespace JSX {
+  interface Element extends React.ReactElement<any, any>, JSXElementWithMobxFormData {}
+
   namespace NornJReact {
     interface Childrenable {
       children?: NornJ.Children | NornJ.Children[];
@@ -36,11 +44,29 @@ declare namespace JSX {
      */
     'n-mobxObserver': NornJReact.MobxObserver;
   }
+
+  interface IntrinsicAttributes {
+    /**
+     * NornJ directive `n-mobxBind`, example:
+     *
+     * `<input n-mobxBind={this.inputValue} />`
+     */
+    ['n-mobxBind']?: any;
+
+    /**
+     * NornJ directive `n-mobxField`, example:
+     *
+     * `<input n-mobxField={this.inputValue} />`
+     */
+    ['n-mobxField']?: any;
+  }
 }
 
 declare module 'nornj-react/mobx';
 
 declare module 'nornj-react/mobx/native';
+
+declare module 'nornj-react/mobx/formData';
 
 declare module 'nornj-react/redux';
 
