@@ -1,42 +1,14 @@
+const deploy = process.env.DUMI_DEPLOY === 'true';
+
 export default {
-  extraBabelPlugins: [
+  base: '/nornj/',
+  publicPath: '/nornj/',
+  exportStatic: {},
+  extraBabelPresets: [
     [
-      'module-resolver',
+      'nornj-with-antd',
       {
-        alias: {
-          '^antd$': 'nornj-react/antd'
-        },
-        extensions: ['.js', '.jsx', '.ts', '.tsx', '.es', '.es6', '.mjs']
-      }
-    ],
-    [
-      'import',
-      {
-        libraryName: 'antd',
-        libraryDirectory: 'es',
-        style: true
-      },
-      'antd'
-    ],
-    [
-      'import',
-      {
-        libraryName: 'nornj-react/antd',
-        style: true
-      },
-      'nornj-react/antd'
-    ],
-    [
-      'nornj-in-jsx',
-      {
-        imports: ['nornj-react/antd'],
         extensionConfig: {
-          switch: {
-            needPrefix: 'onlyUpperCase'
-          },
-          empty: {
-            needPrefix: 'onlyUpperCase'
-          },
           tooltip: {
             needPrefix: 'onlyUpperCase'
           }
@@ -46,11 +18,11 @@ export default {
   ],
   mode: 'site',
   title: 'NornJ',
-  logo: '/images/logo.png',
-  favicon: '/favicon.ico',
+  logo: `/${deploy ? 'nornj/' : ''}images/logo.png`,
+  favicon: `/${deploy ? 'nornj/' : ''}favicon.ico`,
   dynamicImport: {},
-  manifest: {},
-  links: [{ rel: 'manifest', href: '/asset-manifest.json' }],
+  //manifest: {},
+  //links: [{ rel: 'manifest', href: '/asset-manifest.json' }],
   hash: true,
   resolve: {
     includes: ['docs']

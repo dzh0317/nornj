@@ -1,7 +1,7 @@
 import nj from '../core';
 import * as tools from '../utils/tools';
 import * as tranData from '../transforms/transformData';
-import { ExtensionDelegate, ExtensionDelegateMultiParams, SwitchPrefixConfig, ExtensionOption } from '../interface';
+import { ExtensionDelegate, ExtensionDelegateMultiParams, ExtensionPrefixConfig, ExtensionOption } from '../interface';
 
 //Global extension list
 export const extensions: { [name: string]: ExtensionDelegate | ExtensionDelegateMultiParams } = {
@@ -118,23 +118,25 @@ export const extensions: { [name: string]: ExtensionDelegate | ExtensionDelegate
       }
 
       const isArrayLike = tools.isArrayLike(list);
+      const isArrayLoop = isArrayLike || tools.isSet(list) || tools.isWeakSet(list);
+
       tools.each(
         list,
         (item, index, len, lenObj) => {
           const param = {
             data: [item],
-            index: isArrayLike ? index : len,
+            index: isArrayLoop ? index : len,
             item,
             newParent: true
           };
 
-          const _len = isArrayLike ? len : lenObj;
+          const _len = isArrayLoop ? len : lenObj;
           const extra = {
             '@first': param.index === 0,
             '@last': param.index === _len - 1
           };
 
-          if (!isArrayLike) {
+          if (!isArrayLoop) {
             extra['@key'] = index;
           }
           param.data.push(extra);
@@ -290,7 +292,7 @@ const _defaultCfgExpInProps = _config(_defaultCfg, { useExpressionInProps: true 
 export const extensionConfig: { [name: string]: ExtensionOption } = {
   if: _config(_defaultCfgExpInProps),
   else: _config(_defaultCfgExpInProps, { isSubTag: true, hasTagProps: true }),
-  switch: _config(_defaultCfgExpInProps, { needPrefix: SwitchPrefixConfig.OnlyLowerCase }),
+  switch: _config(_defaultCfgExpInProps, { needPrefix: ExtensionPrefixConfig.onlyLowerCase }),
   each: _config(_defaultCfgExpInProps, {
     newContext: {
       item: 'item',

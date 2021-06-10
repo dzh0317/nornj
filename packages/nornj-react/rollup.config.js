@@ -20,10 +20,6 @@ if (type !== 'dts') {
       external.push('mobx', 'mobx-react');
       indexEntry = './mobx/base.js';
       break;
-    case 'Redux':
-      external.push('react-redux');
-      indexEntry = './redux/base.js';
-      break;
     case 'Router':
       external.push('react-router-dom');
       indexEntry = './router/base.js';
@@ -39,7 +35,6 @@ if (type !== 'dts') {
         'react-dom': 'ReactDOM',
         mobx: 'mobx',
         'mobx-react': 'mobxReact',
-        'react-redux': 'ReactRedux',
         'react-router-dom': 'ReactRouterDOM'
       }
     },
@@ -69,7 +64,7 @@ if (type !== 'dts') {
       }),
       resolve({
         customResolveOptions: {
-          moduleDirectory: ['src', 'mobx', 'redux', 'router']
+          moduleDirectory: ['src', 'mobx', 'router']
         },
         extensions: ['.js', '.jsx', '.ts', '.tsx']
       })
@@ -115,7 +110,7 @@ config.plugins.push(
   license({
     banner: `/*!
  * NornJ-React${withEx ? '-' + withEx : ''} v${require('../../package.json').version}
- * (c) 2016-2020 Joe_Sky
+ * (c) Joe_Sky
  * Released under the MIT License.
  */`
   })

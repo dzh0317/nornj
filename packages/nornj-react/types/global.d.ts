@@ -21,12 +21,12 @@ type JSXElementWithMobxFormData = NornJReact.JSXElementWithMobxFormData;
 declare namespace JSX {
   interface Element extends React.ReactElement<any, any>, JSXElementWithMobxFormData {}
 
-  namespace NornJReact {
-    interface Childrenable {
-      children?: NornJ.Children | NornJ.Children[];
-    }
+  namespace NJR {
+    interface MobxObserver extends NornJ.Childrenable {}
 
-    interface MobxObserver extends Childrenable {}
+    type MobxFormData = NornJReact.MobxFormDataProps & NornJ.Childrenable;
+
+    type MobxFieldData = NornJReact.MobxFieldDataProps & NornJ.Childrenable;
   }
 
   interface IntrinsicElements {
@@ -35,23 +35,51 @@ declare namespace JSX {
      *
      * `<mobxObserver><div>{store.foo}</div></mobxObserver>`
      */
-    mobxObserver: NornJReact.MobxObserver;
+    mobxObserver: NJR.MobxObserver;
 
     /**
      * NornJ tag `mobxObserver` is the same as the Observer component of Mobx(https://mobx-react.js.org/observer-component), but its children does not need a nested function. example:
      *
      * `<n-mobxObserver><div>{store.foo}</div></n-mobxObserver>`
      */
-    'n-mobxObserver': NornJReact.MobxObserver;
+    'n-mobxObserver': NJR.MobxObserver;
+
+    /**
+     * NornJ tag `mobxFormData`, example:
+     *
+     * `<mobxFormData><mobxFieldData name="userName" required /></mobxFormData>`
+     */
+    mobxFormData: NJR.MobxFormData;
+
+    /**
+     * NornJ tag `mobxFieldData`, example:
+     *
+     * `<mobxFormData><mobxFieldData name="userName" required /></mobxFormData>`
+     */
+    mobxFieldData: NJR.MobxFieldData;
   }
 
   interface IntrinsicAttributes {
+    /**
+     * NornJ directive `mobxBind`, example:
+     *
+     * `<input mobxBind={this.inputValue} />`
+     */
+    mobxBind?: any;
+
     /**
      * NornJ directive `n-mobxBind`, example:
      *
      * `<input n-mobxBind={this.inputValue} />`
      */
     ['n-mobxBind']?: any;
+
+    /**
+     * NornJ directive `mobxField`, example:
+     *
+     * `<input mobxField={this.inputValue} />`
+     */
+    mobxField?: any;
 
     /**
      * NornJ directive `n-mobxField`, example:
@@ -65,11 +93,5 @@ declare namespace JSX {
 declare module 'nornj-react/mobx';
 
 declare module 'nornj-react/mobx/native';
-
-declare module 'nornj-react/mobx/formData';
-
-declare module 'nornj-react/redux';
-
-declare module 'nornj-react/router';
 
 declare module 'nornj-react/lib/*';

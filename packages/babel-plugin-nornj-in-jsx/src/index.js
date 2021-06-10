@@ -1,4 +1,4 @@
-const nj = require('nornj').default;
+const nj = require('nornj/dist/nornj.common').default;
 const transformExTag = require('./exTag');
 const transformDirective = require('./directive');
 const transformTaggedTemplate = require('./taggedTemplate');
@@ -28,7 +28,7 @@ module.exports = function(babel) {
             !nj.extensionConfig.mobxFormData &&
             utils.setTmplConfig({ extensionConfig: require('nornj-react/mobx/formData/extensionConfig') });
 
-          if (astUtil.isExTag(nodeName)) {
+          if (astUtil.isExTag(nodeName, state.opts)) {
             state.hasNjInJSX = true;
             if (hasMobx) {
               state.hasMobxWithNj = true;
@@ -43,16 +43,23 @@ module.exports = function(babel) {
 
         const directives = astUtil.hasDirective(path.node);
         if (directives && directives.length) {
-          const mobxField = directives.find(directive => directive.startsWith('n-mobxField'));
+          const mobxField = directives.find(
+            directive => directive.startsWith('n-mobxField') || directive.startsWith('mobxField')
+          );
           if (mobxField && !state.mobxFieldNodes.has(path.node)) {
-            if (!mobxField.includes('-noBind')) {
+            if (!mobxField.includes('-noBind') && !astUtil.hasMobxBind(path)) {
               const children = astUtil.getChildren(types, path.node);
-              const directiveParam = mobxField.split('n-mobxField')[1];
+              const directiveParam = mobxField.split(
+                mobxField.includes('n-mobxField') ? 'n-mobxField' : 'mobxField'
+              )[1];
 
               children[0].openingElement.attributes.push(
                 types.jsxAttribute(
                   types.jsxIdentifier(`n-mobxBind${directiveParam}`),
-                  path.node.openingElement.attributes.find(node => node.name.name.startsWith('n-mobxField')).value
+                  path.node.openingElement.attributes.find(
+                    node =>
+                      node.name && (node.name.name.startsWith('n-mobxField') || node.name.name.startsWith('mobxField'))
+                  ).value
                 )
               );
             }
@@ -60,7 +67,7 @@ module.exports = function(babel) {
             state.mobxFieldNodes.add(path.node);
 
             path.replaceWith(
-              types.jsxElement(types.jsxOpeningElement(types.jsxIdentifier('MobxObserver'), []), null, [path.node])
+              types.jsxElement(types.jsxOpeningElement(types.jsxIdentifier('mobxObserver'), []), null, [path.node])
             );
           }
         }
@@ -71,7 +78,12 @@ module.exports = function(babel) {
           state.hasNjInJSX = true;
 
           const hasMobx = directives.reduce(
-            (result, directive) => result || directive.startsWith('n-mobxBind') || directive.startsWith('n-mstBind'),
+            (result, directive) =>
+              result ||
+              directive.startsWith('n-mobxBind') ||
+              directive.startsWith('mobxBind') ||
+              directive.startsWith('n-mstBind') ||
+              directive.startsWith('mstBind'),
             false
           );
           hasMobx &&
@@ -82,7 +94,7 @@ module.exports = function(babel) {
           }
 
           const hasMobxFormData = directives.reduce(
-            (result, directive) => result || directive.startsWith('n-mobxField'),
+            (result, directive) => result || directive.startsWith('n-mobxField') || directive.startsWith('mobxField'),
             false
           );
           hasMobxFormData &&
@@ -168,15 +180,23 @@ module.exports = function(babel) {
 
         if (state.hasMobxWithNj && !state.hasImportNjrMobx) {
           path.node.body.unshift(
-            types.importDeclaration([], types.stringLiteral(`nornj-react/mobx${state.opts.rn ? '/native' : ''}`))
+            types.importDeclaration([], types.stringLiteral('nornj-react/mobx' + (state.opts.esm ? '/esm' : '')))
           );
         }
         if (state.hasMobxFormDataWithNj && !state.hasImportNjrMobxFormData) {
-          path.node.body.unshift(types.importDeclaration([], types.stringLiteral('nornj-react/mobx/formData')));
+          path.node.body.unshift(
+            types.importDeclaration(
+              [],
+              types.stringLiteral('nornj-react/mobx/formData' + (state.opts.esm ? '/esm' : ''))
+            )
+          );
         }
         if (!state.hasImportNjr) {
           path.node.body.unshift(
-            types.importDeclaration([], types.stringLiteral(`nornj-react${state.opts.rn ? '/native' : ''}`))
+            types.importDeclaration(
+              [],
+              types.stringLiteral(`nornj-react${state.opts.rn ? '/native' + (state.opts.esm ? '/esm' : '') : ''}`)
+            )
           );
         }
         if (!state.hasImportNj) {

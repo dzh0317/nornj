@@ -1,4 +1,4 @@
-import nj, { registerExtension, ExtensionDelegateOption, Component, ComponentOption } from 'nornj';
+import nj, { registerExtension, ExtensionDelegateOption, Component, ComponentOption, ExtensionOption } from 'nornj';
 import React, { useRef } from 'react';
 import { toJS } from 'mobx';
 import extensionConfigs from '../../../mobx/extensionConfig';
@@ -28,9 +28,12 @@ const MobxBindWrap = React.forwardRef<any, IProps>(
     },
     ref
   ) => {
-    let valuePropName = 'value',
-      changeEventName = 'onChange';
-    const componentConfig = nj.getComponentConfig(tagName) || {};
+    let valuePropName = 'value';
+    let changeEventName = 'onChange';
+    let componentConfig = nj.getComponentConfig(tagName) || {};
+    if (typeof componentConfig === 'function') {
+      componentConfig = componentConfig(props);
+    }
     const args = directiveProps && directiveProps.arguments;
     const debounceArg = _hasArg(args, 'debounce');
 
@@ -219,7 +222,7 @@ registerExtension(
     tagProps.mobxBindDirectiveOptions = options;
     tagProps._mobxBindValue = ret;
   },
-  extensionConfigs.mobxBind
+  extensionConfigs.mobxBind as ExtensionOption
 );
 
 nj.extensions.mstBind = nj.extensions.mobxBind;

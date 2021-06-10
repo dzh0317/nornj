@@ -1,6 +1,7 @@
 {
   "packages": [
     "packages/babel-plugin-nornj-in-jsx",
+    "packages/babel-preset-nornj-with-antd",
     "packages/nornj",
     "packages/nornj-loader",
     "packages/nornj-react"
@@ -10,6 +11,6 @@
       "message": "chore(release): :bookmark: publish %s"
     }
   },
-  "version": "5.2.0-beta.5",
+  "version": "5.3.4",
   "npmClient": "yarn"
 }

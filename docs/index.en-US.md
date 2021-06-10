@@ -1,26 +1,63 @@
 ---
-title: NornJ - React Hooks Library
+title: NornJ - More exciting JS/JSX based on Template Engine
 hero:
   title: NornJ
-  desc: 一个可以为 JSX 提供扩展语法的模板引擎
+  desc: 🌠 More exciting JS/JSX based on Template Engine
   actions:
-    - text: 快速上手
-      link: /guide/use-it-in-jsx
-# features:
-#   - icon: https://gw.alipayobjects.com/zos/bmw-prod/813f5ed9-6bc4-43d4-9f74-ec81ecf35733/k7htg6n4_w144_h144.png
-#     title: 内容丰富
-#     desc: 拥有丰富的自定义 Hooks，每个 Hooks 都有丰富的在线示例供您体验。
-#   - icon: https://gw.alipayobjects.com/zos/bmw-prod/7659205c-6637-4fa2-8529-d32e5818304b/k7htflfb_w144_h144.png
-#     title: 完备的教程
-#     desc: 包含适合全年龄段的丰富的 React Hooks 教程，想学 React Hooks，来这里就够了。
-#   - icon: https://gw.alipayobjects.com/zos/bmw-prod/6319a122-e8b8-497f-9b45-37cfbe77edaa/k7htfx7t_w144_h144.png
-#     title: 生产可用
-#     desc: 已在蚂蚁内外经受过足够大量的线上系统的考验及打磨，健壮性值得信赖。
-# footer: Open-source MIT Licensed | Copyright © 2019-present<br />Powered by [dumi](https://d.umijs.org)
+    - text: Getting Started
+      link: /guide/getting-started
+features:
+  - icon: https://gw.alipayobjects.com/os/q/cms/images/k9ziitmp/13668549-b393-42a2-97c3-a6365ba87ac2_w96_h96.png
+    title: Easy to use
+    desc: By simply configuring Babel, you can have JSX extension syntax such as if, for, switch, and support complete IDE code intelligence.
+  - icon: https://gw.alipayobjects.com/zos/bmw-prod/d60657df-0822-4631-9d7c-e7a869c2f21c/k79dmz3q_w126_h126.png
+    title: Powerful Extensiblity
+    desc: Fully Extensible design, developers can use simple API to create richer component reuse ideas for React JSX.
+  - icon: https://gw.alipayobjects.com/os/q/cms/images/k9zij2bh/67f75d56-0d62-47d6-a8a5-dbd0cb79a401_w96_h96.png
+    title: Typescript
+    desc: Written in Typescript, provides the complete type definition files.
+footer: Open-source MIT Licensed | Copyright © 2016-present<br />Powered by [Joe_Sky](https://github.com/joe-sky)
 ---
 
-## 轻松上手
+## Quick Start
+
+### 1. Installation
 
 ```bash
-npm install babel-plugin-nornj-in-jsx  #or yarn add babel-plugin-nornj-in-jsx
+npm install babel-plugin-nornj-in-jsx
 ```
+
+### 2. Configure Babel
+
+```js
+{
+  "plugins": [
+    "nornj-in-jsx"
+  ]
+}
+```
+
+### 3. Getting Started
+
+```js
+const App = props => (
+  <if condition={props.success}>
+    <i>success</i>
+    <else>
+      <i>fail</i>
+    </else>
+  </if>
+);
+
+ReactDOM.render(<App success={false} />, document.querySelector('#app'));
+
+//Render result：<i>fail</i>
+```
+
+## Create-React-App Example
+
+[nornj-antd-v4-demo](https://github.com/joe-sky/nornj-antd-v4-demo)
+
+## Playground
+
+[nornj-antd-v4-demo(Codesandbox)](https://codesandbox.io/s/nostalgic-driscoll-t8kty)

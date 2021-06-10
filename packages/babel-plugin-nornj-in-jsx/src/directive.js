@@ -1,4 +1,4 @@
-const nj = require('nornj').default;
+const nj = require('nornj/dist/nornj.common').default;
 const astUtil = require('./util/ast');
 const generate = require('./util/generate');
 
@@ -90,7 +90,11 @@ module.exports = function(babel) {
           lastAttrStr = attrStr.substr(0, attrStr.length - 1);
         } else if (attr.value.type == 'JSXExpressionContainer') {
           const expr = attr.value.expression;
-          const { useExpressionInProps } = directiveConfig;
+          let { useExpressionInProps } = directiveConfig;
+          const { isBindable } = directiveConfig;
+          if (isBindable) {
+            useExpressionInProps = true;
+          }
 
           //Template literal case 1: `123 + abc`
           if (isDirective && useExpressionInProps && types.isStringLiteral(expr) && !expr.extra) {
@@ -115,7 +119,7 @@ module.exports = function(babel) {
             }
 
             _buildFromNjExp(directiveExpressions, attrStr);
-          } else if (isDirective && useExpressionInProps && directiveConfig.isBindable) {
+          } else if (isDirective && isBindable) {
             if (types.isMemberExpression(expr)) {
               const directiveMemberExpressions = generate.getDirectiveMemberExpression(types, expr);
               quasis.push(
@@ -142,7 +146,9 @@ module.exports = function(babel) {
                   cooked: attrStr
                 })
               );
-              expr.paramIdentifierName = `set${nj.upperFirst(expr.name)}`;
+              if (expr.name != null) {
+                expr.paramIdentifierName = `set${nj.upperFirst(expr.name)}`;
+              }
               expressions.push(expr);
               lastAttrStr = '';
             }

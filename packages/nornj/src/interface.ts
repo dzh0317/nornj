@@ -26,6 +26,10 @@ export interface ComponentOption {
   [key: string]: any;
 }
 
+export interface ComponentOptionFunc {
+  (...args: any[]): ComponentOption;
+}
+
 export namespace Template {
   export interface Global {
     tmplKey: string;
@@ -64,6 +68,15 @@ export namespace Template {
 
   export interface RenderChildren {
     (params?: ChildrenParams): JSX.Element | any;
+  }
+
+  /**
+   * NornJ render function, example:
+   *
+   * `template({ ...args1 }, { ...args2 }, ...)`
+   */
+  export interface RenderFunc {
+    (...args: Data[]): any;
   }
 }
 
@@ -108,9 +121,10 @@ export interface ExtensionDelegate {
 
 export interface ExtensionDelegateMultiParams extends FilterDelegate {}
 
-export enum SwitchPrefixConfig {
-  OnlyLowerCase = 'onlyLowerCase',
-  OnlyUpperCase = 'onlyUpperCase'
+export enum ExtensionPrefixConfig {
+  onlyLowerCase = 'onlyLowerCase',
+  onlyUpperCase = 'onlyUpperCase',
+  free = 'free'
 }
 
 export interface ExtensionOption {
@@ -126,7 +140,7 @@ export interface ExtensionOption {
   hasTagProps?: boolean;
   hasTmplCtx?: boolean;
   hasOutputH?: boolean;
-  needPrefix?: boolean | SwitchPrefixConfig;
+  needPrefix?: boolean | keyof typeof ExtensionPrefixConfig;
   [key: string]: any;
 }
 
@@ -140,11 +154,19 @@ export interface ConfigOption {
   fixTagName?: boolean;
 }
 
+export type JSXNode = JSX.Element | string | number | boolean | null | undefined;
+
+export type JSXChild = JSXNode | Array<JSXNode>;
+
+export interface Childrenable {
+  children?: JSXChild;
+}
+
 export interface Export {
   /**
    * `nj.taggedTmplH`, NornJ tagged templates syntax `nj` and `html`.
    */
-  (strs: TemplateStringsArray, ...args: any[]): any;
+  (strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
 
   components?: typeof import('../src/helpers/component').components;
 
@@ -180,37 +202,37 @@ export interface Export {
   /**
    * `nj.taggedTmpl`, NornJ tagged templates syntax `njs`.
    */
-  taggedTmpl?(strs: TemplateStringsArray, ...args: any[]);
+  taggedTmpl?(strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
 
   /**
    * `nj.htmlString`, NornJ tagged templates syntax `njs`.
    */
-  htmlString?(strs: TemplateStringsArray, ...args: any[]);
+  htmlString?(strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
 
   /**
    * `nj.taggedTmplH`, NornJ tagged templates syntax `nj` and `html`.
    */
-  taggedTmplH?(strs: TemplateStringsArray, ...args: any[]);
+  taggedTmplH?(strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
 
   /**
    * `nj.taggedTmplH`, NornJ tagged templates syntax `nj` and `html`.
    */
-  html?(strs: TemplateStringsArray, ...args: any[]);
+  html?(strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
 
   /**
    * `nj.template`, NornJ tagged templates syntax `t`.
    */
-  template?(strs: TemplateStringsArray, ...args: any[]);
+  template?(strs: TemplateStringsArray, ...args: any[]): any;
 
   /**
    * `nj.expression`, NornJ tagged templates syntax `n`.
    */
-  expression?(strs: TemplateStringsArray, ...args: any[]);
+  expression?(strs: TemplateStringsArray, ...args: any[]): any;
 
   /**
    * `nj.css`, NornJ tagged templates syntax `s`.
    */
-  css?(strs: TemplateStringsArray, ...args: any[]);
+  css?(strs: TemplateStringsArray, ...args: any[]): any;
 
   compile?: typeof import('../src/compiler/compile').compile;
 
@@ -249,6 +271,8 @@ export interface Export {
   lowerFirst?: typeof import('../src/utils/tools').lowerFirst;
 
   capitalize?: typeof import('../src/utils/tools').capitalize;
+
+  as?: typeof import('../src/utils/tools').as;
 
   config?: typeof import('../src/config').config;
 

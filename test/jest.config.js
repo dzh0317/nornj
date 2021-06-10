@@ -6,10 +6,8 @@ module.exports = {
     'packages/nornj-react/src/**/*.{js,jsx,ts,tsx}',
     '!packages/nornj-react/src/base.native.ts',
     'packages/nornj-react/mobx/**/*.{js,jsx,ts,tsx}',
-    '!packages/nornj-react/mobx/lib/**/*.*',
     '!packages/nornj-react/mobx/index.js',
-    '!packages/nornj-react/mobx/base.native.ts',
-    '!packages/nornj-react/mobx/native.js',
+    '!packages/nornj-react/mobx/formData/index.js',
     'packages/nornj-react/antd/**/*.{js,jsx,ts,tsx}',
     '!packages/nornj-react/antd/**/style/*.*',
     '!packages/nornj-react/antd/lib/**/*.*',
@@ -18,8 +16,8 @@ module.exports = {
   setupFiles: ['<rootDir>/test/setup.js'],
   setupFilesAfterEnv: ['<rootDir>/node_modules/jest-enzyme/lib/index.js'],
   testMatch: [
-    '<rootDir>/packages/nornj/**/__tests__/**/*.(spec|test).{js,jsx,ts,tsx}',
-    '<rootDir>/packages/nornj-react/**/__tests__/**/*.(spec|test).{js,jsx,ts,tsx}'
+    '<rootDir>/packages/nornj/**/__tests__/**/*.(spec|spec.nj|test|test.nj).{js,jsx,ts,tsx}',
+    '<rootDir>/packages/nornj-react/**/__tests__/**/*.(spec|spec.nj|test|test.nj).{js,jsx,ts,tsx}'
   ],
   testEnvironment: 'enzyme',
   transform: {

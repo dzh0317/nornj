@@ -1,9 +1,8 @@
 /*!
- * NornJ-React v5.2.0-beta.5
- * (c) 2016-2020 Joe_Sky
+ * NornJ-React v5.3.4
+ * (c) Joe_Sky
  * Released under the MIT License.
  */
-/// <reference types="react" />
 import { ElementType } from 'nornj';
 import schema, { RuleItem } from 'async-validator';
 import { IObservableObject } from 'mobx';
@@ -11,15 +10,19 @@ import { IObservableObject } from 'mobx';
 declare function bindTemplate<T extends ElementType>(target: T): T;
 declare function bindTemplate(name: string | ElementType): <T extends ElementType>(target: T) => T;
 
-interface MobxFieldDataProps extends RuleItem {
+interface MobxFieldRuleItem extends Omit<RuleItem, 'message'> {
+    message?: string | (() => string);
+}
+interface MobxFieldDataProps extends MobxFieldRuleItem {
     name: string;
+    label?: string;
     value?: any;
     trigger?: string;
-    rules?: RuleItem[];
+    rules?: MobxFieldRuleItem[];
     [key: string]: any;
 }
 interface MobxFieldDataInstance extends MobxFieldDataProps {
-    setDefaultRule?(rule: RuleItem): void;
+    setDefaultRule?(rule: MobxFieldRuleItem): void;
     validatorSchema?: schema;
     reset?: Function;
     validateStatus?: string;
@@ -28,15 +31,65 @@ interface MobxFieldDataInstance extends MobxFieldDataProps {
 interface MobxFieldData {
     (props: MobxFieldDataProps): JSX.Element;
 }
+declare type ValidateMessage = string | ((...args: any[]) => string);
+interface ValidateMessageInfo {
+    default?: ValidateMessage;
+    required?: ValidateMessage;
+    enum?: ValidateMessage;
+    whitespace?: ValidateMessage;
+    date?: {
+        format?: ValidateMessage;
+        parse?: ValidateMessage;
+        invalid?: ValidateMessage;
+    };
+    types?: {
+        string?: ValidateMessage;
+        method?: ValidateMessage;
+        array?: ValidateMessage;
+        object?: ValidateMessage;
+        number?: ValidateMessage;
+        date?: ValidateMessage;
+        boolean?: ValidateMessage;
+        integer?: ValidateMessage;
+        float?: ValidateMessage;
+        regexp?: ValidateMessage;
+        email?: ValidateMessage;
+        url?: ValidateMessage;
+        hex?: ValidateMessage;
+    };
+    string?: {
+        len?: ValidateMessage;
+        min?: ValidateMessage;
+        max?: ValidateMessage;
+        range?: ValidateMessage;
+    };
+    number?: {
+        len?: ValidateMessage;
+        min?: ValidateMessage;
+        max?: ValidateMessage;
+        range?: ValidateMessage;
+    };
+    array?: {
+        len?: ValidateMessage;
+        min?: ValidateMessage;
+        max?: ValidateMessage;
+        range?: ValidateMessage;
+    };
+    pattern?: {
+        mismatch?: ValidateMessage;
+    };
+}
+declare type ValidateMessages = ValidateMessageInfo | ((fieldData: MobxFieldDataInstance) => ValidateMessageInfo);
 interface MobxFormDataProps {
     observable?: boolean;
+    validateMessages?: ValidateMessages;
 }
 interface MobxFormDataInstance {
     readonly _njMobxFormData: boolean;
     fieldDatas: Map<string, MobxFieldDataInstance & IObservableObject>;
     validate(name?: string | string[]): Promise<any>;
     error(name: string, help: string): void;
-    clear(name?: string | string[]): void;
+    clear(name?: string | string[], success?: boolean): void;
     reset(name?: string | string[]): void;
     add(fieldData: MobxFieldDataProps | JSX.Element): void;
     delete(name: string): void;
@@ -47,6 +100,7 @@ interface MobxFormDataInstance {
 interface MobxFormData {
     (props: MobxFormDataProps): JSX.Element;
 }
+declare type FormDataInstance<T> = MobxFormDataInstance & T;
 declare type JSXElementWithMobxFormData = {
     formData?: MobxFormDataInstance & IObservableObject;
 };
@@ -67,4 +121,4 @@ interface Export {
 declare const njr: Export;
 
 export default njr;
-export { Export, JSXElementWithMobxFormData, MobxFieldData, MobxFieldDataInstance, MobxFieldDataProps, MobxFormData, MobxFormDataInstance, MobxFormDataProps, bindTemplate, bindTemplate as registerTmpl };
+export { Export, FormDataInstance, JSXElementWithMobxFormData, MobxFieldData, MobxFieldDataInstance, MobxFieldDataProps, MobxFieldRuleItem, MobxFormData, MobxFormDataInstance, MobxFormDataProps, ValidateMessageInfo, ValidateMessages, bindTemplate, bindTemplate as registerTmpl };

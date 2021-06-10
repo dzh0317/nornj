@@ -1,15 +1,25 @@
-import nj, { registerExtension } from 'nornj';
-import { observable, runInAction, reaction } from 'mobx';
+import React, { Fragment, isValidElement, useMemo } from 'react';
+import nj, { registerExtension, as, ExtensionOption } from 'nornj';
+import { observable, runInAction, reaction, extendObservable, isComputedProp, observe } from 'mobx';
 import schema, { RuleItem } from 'async-validator';
 import extensionConfigs from '../../../mobx/formData/extensionConfig';
-import { MobxFormDataInstance, MobxFieldDataProps, MobxFieldDataInstance } from '../../interface';
+import {
+  MobxFormDataProps,
+  MobxFormDataInstance,
+  MobxFieldDataProps,
+  MobxFieldDataInstance,
+  MobxFieldRuleItem,
+  FormDataInstance
+} from '../../interface';
 import moment from 'moment';
 
 type operateCallback = (name: string) => void;
 
 type operateCallbackMulti = (name: string[]) => void;
 
-const createFormData = (): MobxFormDataInstance & {
+const createFormData = (
+  options?: MobxFormDataProps
+): MobxFormDataInstance & {
   _operate(
     name: string | string[],
     callback: operateCallback,
@@ -17,7 +27,7 @@ const createFormData = (): MobxFormDataInstance & {
     callbackMultiReturn?: operateCallbackMulti
   ): any;
   _validate(name: string): Promise<any>;
-  _clear(name: string): any;
+  _clear(name: string, success?: boolean): any;
   _reset(name: string): any;
 } => ({
   _njMobxFormData: true,
@@ -49,7 +59,7 @@ const createFormData = (): MobxFormDataInstance & {
           this.error(name, errors?.[0]?.message);
           reject({ values: { [name]: value }, errors, fields });
         } else {
-          this.clear(name);
+          this.clear(name, true);
           resolve({ [name]: value });
         }
       });
@@ -78,14 +88,14 @@ const createFormData = (): MobxFormDataInstance & {
     oFd.help = help;
   },
 
-  _clear(name) {
+  _clear(name, success) {
     const oFd = this.fieldDatas.get(name);
-    oFd.validateStatus = null;
+    oFd.validateStatus = success ? 'success' : null;
     oFd.help = null;
   },
 
-  clear(names) {
-    return this._operate(names, name => this._clear(name));
+  clear(names, success) {
+    return this._operate(names, name => this._clear(name, success));
   },
 
   _reset(name) {
@@ -95,17 +105,22 @@ const createFormData = (): MobxFormDataInstance & {
   },
 
   reset(names) {
-    return this._operate(names, name => {
-      this._reset(name);
-      this._clear(name);
-    });
+    return this._operate(names, name => this._reset(name));
   },
 
   add(fieldData: MobxFieldDataProps) {
     const { name, value, trigger = 'valueChange', rules, ...ruleOptions } = fieldData;
     const fd: MobxFieldDataInstance = { name, value, trigger, rules, ...ruleOptions };
     const _rules = rules ? rules : [ruleOptions];
-    fd.rules = _rules;
+    fd.rules = _rules.map((rule, i) => {
+      const oRule = observable(rule);
+      observe(oRule, change => {
+        const schemaRules: RuleItem[] = (fd.validatorSchema as any).rules[name];
+        Object.assign(schemaRules[i], oRule);
+      });
+
+      return oRule;
+    });
 
     fd.setDefaultRule = rule => {
       const schemaRules: RuleItem[] = (fd.validatorSchema as any).rules[name];
@@ -117,7 +132,7 @@ const createFormData = (): MobxFormDataInstance & {
     };
 
     fd.validatorSchema = new schema({
-      [name]: _rules.map(({ type = 'string', required = false, transform: _transform, ...others }) => ({
+      [name]: (_rules as RuleItem[]).map(({ type = 'string', required = false, transform: _transform, ...others }) => ({
         type,
         required,
         transform(_value) {
@@ -141,44 +156,71 @@ const createFormData = (): MobxFormDataInstance & {
     });
 
     fd.reset = function() {
+      if (this.value !== value) {
+        this._resetting = true;
+      }
       this.value = value;
     };
 
     const oFd = observable(fd);
     this.fieldDatas.set(name, oFd);
 
-    Object.defineProperty(this, name, {
-      get: function() {
-        return this.fieldDatas.get(name).value;
-      },
-      set: function(value) {
-        this.setValue(name, value);
-      },
-      enumerable: true,
-      configurable: true
-    });
-
-    trigger === 'valueChange' &&
-      reaction(
-        () => this[name],
-        () => this.validate(name).catch(nj.noop)
+    if (options?.validateMessages) {
+      const { validateMessages } = options;
+      (fd.validatorSchema as any).messages(
+        typeof validateMessages === 'function' ? validateMessages(oFd) : validateMessages
       );
+    }
+
+    !isComputedProp(this, name) &&
+      extendObservable(
+        this,
+        Object.defineProperty({}, name, {
+          get: function() {
+            return this.fieldDatas.get(name)?.value;
+          },
+          set: function(value) {
+            this.setValue(name, value);
+          },
+          enumerable: true,
+          configurable: true
+        })
+      );
+
+    if (trigger === 'valueChange') {
+      oFd._reactionDispose = reaction(
+        () => (Array.isArray(this[name]) ? this[name].map(item => item) : this[name]),
+        () => {
+          if (!oFd._resetting) {
+            this.validate(name).catch(nj.noop);
+          }
+          oFd._resetting = false;
+        }
+      );
+    }
   },
 
   delete(name) {
+    const oFd = this.fieldDatas.get(name);
+    oFd?._reactionDispose();
     this.fieldDatas.delete(name);
   },
 
   setValue(name, value) {
-    if (typeof name === 'string') {
-      runInAction(() => (this.fieldDatas.get(name).value = value));
-    } else {
-      this.fieldDatas.forEach((fieldData, fieldName: string) => {
-        if (fieldName in name) {
-          runInAction(() => (fieldData.value = name[fieldName]));
+    runInAction(() => {
+      if (typeof name === 'string') {
+        const fieldData = this.fieldDatas.get(name);
+        if (fieldData) {
+          fieldData.value = value;
         }
-      });
-    }
+      } else {
+        this.fieldDatas.forEach((fieldData, fieldName: string) => {
+          if (fieldName in name) {
+            fieldData.value = name[fieldName];
+          }
+        });
+      }
+    });
   },
 
   get formData() {
@@ -186,17 +228,36 @@ const createFormData = (): MobxFormDataInstance & {
   }
 });
 
+function getChildrenWithoutFragment(children: any[]) {
+  const actualChildren = [];
+
+  children.forEach(child => {
+    if (!isValidElement(child) || child.type !== Fragment) {
+      if (Array.isArray(child)) {
+        getChildrenWithoutFragment(child)?.forEach(child => actualChildren.push(child));
+      } else {
+        actualChildren.push(child);
+      }
+    } else {
+      getChildrenWithoutFragment((child?.props as any)?.children)?.forEach(child => actualChildren.push(child));
+    }
+  });
+
+  return actualChildren;
+}
+
 registerExtension(
   'mobxFormData',
   options => {
-    const { children, props } = options;
+    const { children } = options;
+    const props: MobxFormDataProps = options.props;
     let _children = children();
     if (!Array.isArray(_children)) {
       _children = [_children];
     }
 
-    const formData = createFormData();
-    _children.forEach((fieldData: MobxFieldDataInstance) => {
+    const formData = createFormData(props);
+    getChildrenWithoutFragment(_children).forEach((fieldData: MobxFieldDataInstance) => {
       fieldData && formData.add(fieldData);
     });
 
@@ -212,12 +273,38 @@ registerExtension(
   options => {
     const { value, tagProps } = options;
     const _value = value();
-    const { prop, source } = _value;
-    const oFd: MobxFieldDataInstance = source.fieldDatas.get(prop);
+    const { prop, source }: { prop: string | string[]; source: MobxFormDataInstance } = _value;
+    const fieldNames = Array.isArray(prop) ? prop : [prop];
 
-    tagProps.validateStatus = oFd.validateStatus;
-    tagProps.help = oFd.help;
-    tagProps.required = oFd.rules.find(rule => rule.required);
+    let validateStatus = null;
+    const help = [];
+    fieldNames.forEach(fieldName => {
+      const oFd: MobxFieldDataInstance = source.fieldDatas.get(fieldName);
+
+      if (validateStatus == null && oFd.validateStatus != null) {
+        validateStatus = oFd.validateStatus;
+      }
+      if (oFd.help != null) {
+        help.push(<div key={help.length}>{oFd.help}</div>);
+      }
+      if (tagProps.required == null) {
+        tagProps.required = oFd.rules.find(rule => rule.required);
+      }
+      if (tagProps.label) {
+        oFd.label = tagProps.label;
+      } else if (oFd.label) {
+        tagProps.label = oFd.label;
+      }
+    });
+
+    tagProps.validateStatus = validateStatus;
+    if (help.length) {
+      tagProps.help = <>{help}</>;
+    }
   },
-  extensionConfigs.mobxField
+  extensionConfigs.mobxField as ExtensionOption
 );
+
+export function useFormData<T = {}>(formDataElement: () => JSX.Element, deps: any[] = []) {
+  return useMemo<FormDataInstance<T>>(() => as(observable(formDataElement())), deps);
+}

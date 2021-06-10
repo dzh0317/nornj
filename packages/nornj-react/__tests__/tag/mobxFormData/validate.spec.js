@@ -1,24 +1,27 @@
-import React, { Component, useState } from 'react';
+import React, { Component, useState, useEffect } from 'react';
+import { act } from 'react-dom/test-utils';
 import { shallow, mount } from 'enzyme';
 import nj, { expression as n } from 'nornj';
 import '../../../src/base';
 import '../../../src/extension/mobx/base';
-import '../../../src/extension/mobx/mobxFormData';
-import { useLocalStore } from 'mobx-react-lite';
+import { useFormData } from '../../../src/extension/mobx/mobxFormData';
+import { observer } from 'mobx-react-lite';
 import Form from '../../../antd/form';
 import Input from '../../../antd/input';
 import Checkbox from '../../../antd/checkbox';
 
-function TestForm(props) {
-  const { formData } = useLocalStore(() => (
-    <MobxFormData>
-      <MobxFieldData name="userName" value="joe_sky" type="string" trigger="onChange" required />
-      <MobxFieldData name="age" value="18a" type="number" />
-      <MobxFieldData name="worked" value={true} type="boolean" required />
-    </MobxFormData>
+const TestForm = React.forwardRef((props, ref) => {
+  const formData = useFormData(() => (
+    <mobxFormData>
+      <mobxFieldData name="userName" value="joe_sky" type="string" trigger="onChange" required />
+      <mobxFieldData name="age" value="18a" type="number" />
+      <mobxFieldData name="worked" value={true} type="boolean" required />
+    </mobxFormData>
   ));
 
-  props.formDataRef.current = formData;
+  useEffect(() => {
+    ref.current = formData;
+  }, []);
 
   return (
     <>
@@ -33,23 +36,31 @@ function TestForm(props) {
       </Form.Item>
     </>
   );
-}
+});
 
 describe('Validate', function() {
   const ref = React.createRef();
-  const app = mount(<TestForm formDataRef={ref} />);
+  const app = mount(<TestForm ref={ref} />);
   const formData = ref.current;
 
   it('Validate single field', async () => {
     try {
-      const values = await formData.validate('userName');
+      let values;
+      await act(async () => {
+        values = await formData.validate('userName');
+      });
+
       expect(values).toEqual({ userName: 'joe_sky' });
     } catch (errorInfo) {
       console.log(errorInfo);
     }
 
     try {
-      const values = await formData.validate('age');
+      let values;
+      await act(async () => {
+        values = await formData.validate('age');
+      });
+
       console.log(values);
     } catch (errorInfo) {
       expect(errorInfo.errors[0].field).toEqual('age');
@@ -58,14 +69,22 @@ describe('Validate', function() {
 
   it('Validate multiple fields', async () => {
     try {
-      const values = await formData.validate(['userName', 'worked']);
+      let values;
+      await act(async () => {
+        values = await formData.validate(['userName', 'worked']);
+      });
+
       expect(values).toEqual({ userName: 'joe_sky', worked: true });
     } catch (errorInfo) {
       console.log(errorInfo);
     }
 
     try {
-      const values = await formData.validate(['userName', 'age']);
+      let values;
+      await act(async () => {
+        values = await formData.validate(['userName', 'age']);
+      });
+
       console.log(values);
     } catch (errorInfo) {
       expect(errorInfo.errors[0].field).toEqual('age');
@@ -73,17 +92,31 @@ describe('Validate', function() {
   });
 
   it('Validate all fields', async () => {
-    formData.age = 28;
+    await act(async () => {
+      formData.age = 28;
+    });
+
     try {
-      const values = await formData.validate();
+      let values;
+      await act(async () => {
+        values = await formData.validate();
+      });
+
       expect(values).toEqual({ userName: 'joe_sky', age: 28, worked: true });
     } catch (errorInfo) {
       console.log(errorInfo);
     }
 
-    formData.age = '28a';
+    await act(async () => {
+      formData.age = '28a';
+    });
+
     try {
-      const values = await formData.validate();
+      let values;
+      await act(async () => {
+        values = await formData.validate();
+      });
+
       console.log(values);
     } catch (errorInfo) {
       expect(errorInfo.errors[0].field).toEqual('age');

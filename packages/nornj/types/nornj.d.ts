@@ -1,19 +1,18 @@
 /*!
- * NornJ template engine v5.2.0-beta.5
- * (c) 2016-2020 Joe_Sky
+ * NornJ template engine v5.3.4
+ * (c) Joe_Sky
  * Released under the MIT License.
  */
-/// <reference types="react" />
 declare function escape(str: any): any;
 declare function unescape(str: any): any;
 
 declare function config(configs: ConfigOption): void;
 
+declare const isNumber: (obj: any) => boolean;
+declare const isString: (obj: any) => boolean;
 declare function arrayPush(arr1: any, arr2: any): number;
 declare function arraySlice(arrLike?: any, start?: number, end?: number): any[];
 declare function isObject(obj: any): boolean;
-declare function isNumber(obj: any): boolean;
-declare function isString(obj: any): boolean;
 declare function isArrayLike(obj: any): boolean;
 declare function each(obj: any, func: Function, isArr?: boolean): void;
 declare function noop(): void;
@@ -26,6 +25,7 @@ declare const assign: {
 declare function upperFirst(str: string): string;
 declare function lowerFirst(str: string): string;
 declare function capitalize(str: string): string;
+declare function as<R, T = any>(value: T): R;
 
 declare const compile: (tmpl: any, tmplKey: any, fileName?: string, delimiters?: object, tmplRule?: object) => any;
 declare const compileH: (tmpl: any, tmplKey: any, fileName?: string, delimiters?: object, tmplRule?: object) => any;
@@ -74,18 +74,19 @@ declare function registerFilter(options: {
 }): void;
 declare function registerFilter(name: string, filter: FilterDelegate, options?: FilterOption, mergeConfig?: boolean): void;
 
+declare type ComponentOptionOrFunc = ComponentOption | ComponentOptionFunc;
 declare const components: {
     [name: string]: Component;
 };
-declare const componentConfig: Map<Component, ComponentOption>;
+declare const componentConfig: Map<Component, ComponentOptionOrFunc>;
 declare function registerComponent(options: {
     [name: string]: Component | {
         component?: Component;
-        options?: ComponentOption;
+        options?: ComponentOptionOrFunc;
     };
 }): Component | Component[];
-declare function registerComponent(name: string, component: Component, options?: ComponentOption): Component | Component[];
-declare function getComponentConfig(name: Component): ComponentOption;
+declare function registerComponent(name: string, component: Component, options?: ComponentOptionOrFunc): Component | Component[];
+declare function getComponentConfig(name: Component): ComponentOptionOrFunc;
 declare function copyComponentConfig(component: Component, from: Component): Component;
 
 declare function getData(this: Template.Context | void, prop: any, data: any, hasSource?: any): any;
@@ -111,6 +112,9 @@ interface ComponentOption {
     changeEventName?: string;
     needToJS?: boolean;
     [key: string]: any;
+}
+interface ComponentOptionFunc {
+    (...args: any[]): ComponentOption;
 }
 declare namespace Template {
     interface Global {
@@ -145,6 +149,14 @@ declare namespace Template {
     }
     interface RenderChildren {
         (params?: ChildrenParams): JSX.Element | any;
+    }
+    /**
+     * NornJ render function, example:
+     *
+     * `template({ ...args1 }, { ...args2 }, ...)`
+     */
+    interface RenderFunc {
+        (...args: Data[]): any;
     }
 }
 interface FilterDelegateOption {
@@ -183,9 +195,10 @@ interface ExtensionDelegate {
 }
 interface ExtensionDelegateMultiParams extends FilterDelegate {
 }
-declare enum SwitchPrefixConfig {
-    OnlyLowerCase = "onlyLowerCase",
-    OnlyUpperCase = "onlyUpperCase"
+declare enum ExtensionPrefixConfig {
+    onlyLowerCase = "onlyLowerCase",
+    onlyUpperCase = "onlyUpperCase",
+    free = "free"
 }
 interface ExtensionOption {
     onlyGlobal?: boolean;
@@ -200,7 +213,7 @@ interface ExtensionOption {
     hasTagProps?: boolean;
     hasTmplCtx?: boolean;
     hasOutputH?: boolean;
-    needPrefix?: boolean | SwitchPrefixConfig;
+    needPrefix?: boolean | keyof typeof ExtensionPrefixConfig;
     [key: string]: any;
 }
 interface ConfigOption {
@@ -212,11 +225,16 @@ interface ConfigOption {
     noWsMode?: boolean;
     fixTagName?: boolean;
 }
+declare type JSXNode = JSX.Element | string | number | boolean | null | undefined;
+declare type JSXChild = JSXNode | Array<JSXNode>;
+interface Childrenable {
+    children?: JSXChild;
+}
 interface Export {
     /**
      * `nj.taggedTmplH`, NornJ tagged templates syntax `nj` and `html`.
      */
-    (strs: TemplateStringsArray, ...args: any[]): any;
+    (strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
     components?: typeof components;
     componentConfig?: typeof componentConfig;
     /**
@@ -240,19 +258,19 @@ interface Export {
     /**
      * `nj.taggedTmpl`, NornJ tagged templates syntax `njs`.
      */
-    taggedTmpl?(strs: TemplateStringsArray, ...args: any[]): any;
+    taggedTmpl?(strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
     /**
      * `nj.htmlString`, NornJ tagged templates syntax `njs`.
      */
-    htmlString?(strs: TemplateStringsArray, ...args: any[]): any;
+    htmlString?(strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
     /**
      * `nj.taggedTmplH`, NornJ tagged templates syntax `nj` and `html`.
      */
-    taggedTmplH?(strs: TemplateStringsArray, ...args: any[]): any;
+    taggedTmplH?(strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
     /**
      * `nj.taggedTmplH`, NornJ tagged templates syntax `nj` and `html`.
      */
-    html?(strs: TemplateStringsArray, ...args: any[]): any;
+    html?(strs: TemplateStringsArray, ...args: any[]): Template.RenderFunc;
     /**
      * `nj.template`, NornJ tagged templates syntax `t`.
      */
@@ -284,6 +302,7 @@ interface Export {
     upperFirst?: typeof upperFirst;
     lowerFirst?: typeof lowerFirst;
     capitalize?: typeof capitalize;
+    as?: typeof as;
     config?: typeof config;
     includeParser?: Function;
     createElement?: Function;
@@ -318,11 +337,11 @@ interface Export {
 
 declare const nj: Export;
 
-declare const taggedTmpl: (strs: TemplateStringsArray, ...args: any[]) => any;
-declare const taggedTmplH: (strs: TemplateStringsArray, ...args: any[]) => any;
+declare const taggedTmpl: (strs: TemplateStringsArray, ...args: any[]) => Template.RenderFunc;
+declare const taggedTmplH: (strs: TemplateStringsArray, ...args: any[]) => Template.RenderFunc;
 declare function template(strs: TemplateStringsArray, ...args: any[]): any;
 declare function expression(strs: TemplateStringsArray, ...args: any[]): any;
 declare function css(strs: TemplateStringsArray, ...args: any[]): any;
 
 export default nj;
-export { Component, ComponentOption, ComponentProps, ConfigOption, ElementType, Export, ExtensionDelegate, ExtensionDelegateMultiParams, ExtensionDelegateOption, ExtensionOption, FilterDelegate, FilterDelegateOption, FilterOption, SwitchPrefixConfig, Template, compile, compileH, css, expression, taggedTmplH as html, taggedTmpl as htmlString, registerComponent, registerExtension, registerFilter, render, renderH, taggedTmpl, taggedTmplH, template };
+export { Childrenable, Component, ComponentOption, ComponentOptionFunc, ComponentProps, ConfigOption, ElementType, Export, ExtensionDelegate, ExtensionDelegateMultiParams, ExtensionDelegateOption, ExtensionOption, ExtensionPrefixConfig, FilterDelegate, FilterDelegateOption, FilterOption, JSXChild, JSXNode, Template, as, compile, compileH, css, expression, taggedTmplH as html, taggedTmpl as htmlString, registerComponent, registerExtension, registerFilter, render, renderH, taggedTmpl, taggedTmplH, template };

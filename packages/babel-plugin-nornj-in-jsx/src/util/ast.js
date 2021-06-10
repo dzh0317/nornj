@@ -1,5 +1,7 @@
-const nj = require('nornj').default;
+const nj = require('nornj/dist/nornj.common').default;
 const utils = require('./utils');
+const traverse = require('@babel/traverse').default;
+const types = require('@babel/types');
 
 const TYPES = {
   ELEMENT: 'JSXElement',
@@ -186,7 +188,7 @@ exports.getSanitizedExpressionForContent = function(babelTypes, blocks, keyPrefi
   return babelTypes.arrayExpression(blocks);
 };
 
-exports.hasDirective = function(node) {
+function hasDirective(node) {
   return (
     node.openingElement &&
     node.openingElement.attributes.reduce(function(result, attr) {
@@ -196,21 +198,33 @@ exports.hasDirective = function(node) {
       return result;
     }, [])
   );
-};
+}
+exports.hasDirective = hasDirective;
 
 function isDirective(name) {
-  return name.indexOf('n-') === 0;
+  if (name.indexOf('n-') === 0) {
+    return true;
+  }
+
+  const exConfig = nj.extensionConfig[name.replace(REGEX_EX_ATTR, (all, name) => name)];
+  return exConfig && exConfig.needPrefix == 'free';
 }
 exports.isDirective = isDirective;
 
 exports.transformDirective = function(attrName) {
-  const ret = attrName.substr(2);
-  return (ret === 'style' ? '' : 'n-') + ret;
+  if (attrName.indexOf('n-') === 0) {
+    const ret = attrName.substr(2);
+    return (ret === 'style' ? '' : 'n-') + ret;
+  } else {
+    return 'n-' + attrName;
+  }
 };
 
-exports.REGEX_CAPITALIZE = /^[A-Z][\s\S]*$/;
+const REGEX_CAPITALIZE = /^[A-Z][\s\S]*$/;
+exports.REGEX_CAPITALIZE = REGEX_CAPITALIZE;
 
-exports.REGEX_EX_ATTR = /([^\s-$.]+)((-[^\s-$.]+)*)(([$.][^\s-$.]+)*)/;
+const REGEX_EX_ATTR = /([^\s-$.]+)((-[^\s-$.]+)*)(([$.][^\s-$.]+)*)/;
+exports.REGEX_EX_ATTR = REGEX_EX_ATTR;
 
 exports.addImportNj = function(state) {
   const globalNj = state.addImport('nornj', 'default', 'nj');
@@ -227,7 +241,11 @@ exports.hasExPrefix = hasExPrefix;
 const REGEX_LOWER_CASE = /^[a-z]/;
 const REGEX_UPPER_CASE = /^[A-Z]/;
 
-exports.isExTag = function(nodeName) {
+exports.isExTag = function(nodeName, opts = {}) {
+  if (opts.onlyLowercaseExName && REGEX_UPPER_CASE.test(nodeName)) {
+    return false;
+  }
+
   const exPrefix = hasExPrefix(nodeName);
   let isSubTag;
   let needPrefix;
@@ -285,3 +303,29 @@ exports.isSubExTag = function(node) {
           (needPrefix == 'onlyUpperCase' && REGEX_LOWER_CASE.test(nodeName)) ||
           (needPrefix == 'onlyLowerCase' && REGEX_UPPER_CASE.test(nodeName)));
 };
+
+function hasMobxBind(path) {
+  let hasMobxBind = false;
+  traverse(
+    path.node,
+    {
+      JSXIdentifier: {
+        enter(path) {
+          if (hasMobxBind) {
+            return;
+          }
+
+          if (path.node.name.startsWith('n-mobxBind') || path.node.name.startsWith('mobxBind')) {
+            hasMobxBind = true;
+          }
+        }
+      }
+    },
+    path.scope,
+    path.state,
+    path
+  );
+
+  return hasMobxBind;
+}
+exports.hasMobxBind = hasMobxBind;

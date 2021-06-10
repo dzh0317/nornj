@@ -1,5 +1,7 @@
 /node_modules/
 /lib/
+/es/
+/dist/
 /mobx/index.js
 /mobx/native.js
 /mobx/formData/index.js
@@ -8,7 +10,7 @@
 /router/index.js
 /redux/index.js
 /server/index.js
-/antd/lib/
+/antd/
 /echarts/index.js
 /echarts/core.js
 /test/coverage/

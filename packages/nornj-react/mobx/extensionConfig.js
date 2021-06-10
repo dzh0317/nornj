@@ -1,14 +1,14 @@
-const mobxConfig = {
+const bindConfig = {
   onlyGlobal: true,
   newContext: false,
+  isDirective: true,
   isBindable: true,
-  useExpressionInProps: true,
-  isDirective: true
+  needPrefix: 'free'
 };
 
 module.exports = {
-  mobxBind: mobxConfig,
-  mstBind: mobxConfig,
+  mobxBind: bindConfig,
+  mstBind: bindConfig,
   mobxObserver: {
     onlyGlobal: true,
     newContext: false
